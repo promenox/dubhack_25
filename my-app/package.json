@@ -1,0 +1,72 @@
+{
+  "name": "productivity-garden",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Personal AI Productivity Tracker with Garden UI",
+  "type": "module",
+  "author": "Your Name",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && electron-builder",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "active-win": "^8.1.0",
+    "aws-sdk": "^2.1692.0",
+    "mock-aws-s3": "^4.0.2",
+    "nock": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tesseract.js": "^5.0.4"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.64",
+    "@types/react-dom": "^18.2.21",
+    "@typescript-eslint/eslint-plugin": "^7.1.1",
+    "@typescript-eslint/parser": "^7.1.1",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^30.0.1",
+    "electron-builder": "^24.13.3",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "typescript": "^5.2.2",
+    "vite": "^5.1.6",
+    "vite-plugin-electron": "^0.28.6",
+    "vite-plugin-electron-renderer": "^0.14.5"
+  },
+  "main": "dist-electron/main.js",
+  "build": {
+    "appId": "com.productivity.garden",
+    "productName": "Productivity Garden",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  }
+}
