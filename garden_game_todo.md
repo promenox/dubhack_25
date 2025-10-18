@@ -1,54 +1,59 @@
-# 🪴 Garden Productivity Game — Development TODO
+﻿# ðŸª´ Garden Productivity Game â€” Development TODO
 
-## 🧭 1. Project Setup
-- [ ] Initialize project (Electron or Tauri — pick one)
-- [ ] Set up TypeScript for type safety
-- [ ] Install UI library (React / Vue / Svelte) for frontend rendering
-- [ ] Set up project structure:
-  - `core/` → game logic
-  - `ui/` → garden customization + overlay
-  - `tracker/` → productivity logic (later)
-  - `storage/` → save/load
+## ðŸ§­ 1. Project Setup
 
-## 🌱 2. Core Garden Game Engine
-- [ ] Create `GardenGame` class to handle:
-  - [ ] Planting, growth, harvesting
-  - [ ] Currency system
-  - [ ] Growth multiplier control
-  - [ ] Timestamps for offline growth
-- [ ] Define data models:
-  - [ ] `Plant` (id, type, plantedAt, growthDuration, progress)
-  - [ ] `Plot` (id, plant or empty)
-  - [ ] `Inventory` (currency, seeds, decorations)
-  - [ ] `GardenState`
-- [ ] Implement:
-  - [ ] `plantSeed(plotId, seedType)`
-  - [ ] `harvestCrop(plotId)`
-  - [ ] `addCurrency(amount)`
-  - [ ] `setGrowthMultiplier(multiplier)`
-  - [ ] `tick(deltaTime)`
-  - [ ] `getGardenState() / save / load`
-- [ ] Add basic save/load to local storage or file
+- [x] Initialize project (Electron or Tauri â€” pick one)
+- [x] Set up TypeScript for type safety
+- [x] Install UI library (React / Vue / Svelte) for frontend rendering
+- [x] Set up project structure:
+  - [x] `core/` â†’ game logic
+  - [x] `ui/` â†’ garden customization + overlay
+  - [x] `tracker/` â†’ productivity logic (later)
+  - [x] `storage/` â†’ save/load
 
-## 🧠 3. Garden Customization UI
-- [ ] Create main window UI with:
-  - [ ] Garden grid (plots)
-  - [ ] Seed shop menu
-  - [ ] Inventory display (currency, items)
-  - [ ] Planting and harvesting interactions
-- [ ] Implement drag & drop for placing plants/decor
-- [ ] Add plot expansion system (unlock new plots with currency)
-- [ ] Add decorations (trees, fences, paths — no function at first)
-- [ ] Add simple UI animations (plant sprouting, growth stages)
+## ðŸŒ± 2. Core Garden Game Engine
 
-## 🌿 4. Growth Visualization
-- [ ] Design plant growth stages (e.g. seed → sprout → bloom)
-- [ ] Implement rendering logic based on plant `progress`
-- [ ] Add `tick` loop that updates visual growth every few seconds
-- [ ] Add smooth animations for growing / harvesting
+- [x] Create `GardenGame` class to handle:
+  - [x] Planting, growth, harvesting
+  - [x] Currency system
+  - [x] Growth multiplier control
+  - [x] Timestamps for offline growth
+- [x] Define data models:
+  - [x] `Plant` (id, type, plantedAt, growthDuration, progress)
+  - [x] `Plot` (id, plant or empty)
+  - [x] `Inventory` (currency, seeds, decorations)
+  - [x] `GardenState`
+- [x] Implement:
+  - [x] `plantSeed(plotId, seedType)`
+  - [x] `harvestCrop(plotId)`
+  - [x] `addCurrency(amount)`
+  - [x] `setGrowthMultiplier(multiplier)`
+  - [x] `tick(deltaTime)`
+  - [x] `getGardenState() / save / load`
+- [x] Add basic save/load to local storage or file
+
+## ðŸ§  3. Garden Customization UI
+
+- [x] Create main window UI with:
+  - [x] Garden grid (plots)
+  - [x] Seed shop menu
+  - [x] Inventory display (currency, items)
+  - [x] Planting and harvesting interactions
+- [x] Implement drag & drop for placing plants/decor
+- [x] Add plot expansion system (unlock new plots with currency)
+- [x] Add decorations (trees, fences, paths — no function at first)
+- [x] Add simple UI animations (plant sprouting, growth stages)
+
+## ðŸŒ¿ 4. Growth Visualization
+
+- [x] Design plant growth stages (e.g. seed → sprout → bloom)
+- [x] Implement rendering logic based on plant `progress`
+- [x] Add `tick` loop that updates visual growth every few seconds
+- [x] Add smooth animations for growing / harvesting
 - [ ] Handle overlay and garden UI sharing the same state
 
-## 🐾 5. Overlay System (Desktop Pet Style)
+## ðŸ¾ 5. Overlay System (Desktop Pet Style)
+
 - [ ] Create lightweight overlay window:
   - [ ] Transparent background
   - [ ] Always-on-top option
@@ -61,7 +66,8 @@
 - [ ] Sync with core game state to reflect live growth
 - [ ] Implement show/hide hotkey
 
-## 🧰 6. User Settings & Persistence
+## ðŸ§° 6. User Settings & Persistence
+
 - [ ] Add user settings file (JSON or SQLite):
   - [ ] Overlay position
   - [ ] Overlay size
@@ -70,8 +76,9 @@
 - [ ] Auto-load on launch
 - [ ] Add backup / reset option
 
-## 🪙 7. Productivity Hooks (Future Phase)
-*(Optional at this stage — can be mocked during dev)*
+## ðŸª™ 7. Productivity Hooks (Future Phase)
+
+*(Optional at this stage â€” can be mocked during dev)*
 
 - [ ] Stub `productivityTracker` module:
   - [ ] `getProductivityMultiplier()` mock
@@ -80,7 +87,8 @@
   - [ ] `garden.setGrowthMultiplier(value)`
 - [ ] (Later) Replace with real tracking logic
 
-## 🧑‍🤝‍🧑 8. Polish & UX
+## ðŸ§‘â€ðŸ¤â€ðŸ§‘ 8. Polish & UX
+
 - [ ] Add simple tutorial / onboarding for planting
 - [ ] Add satisfying harvest animation + sound
 - [ ] Add simple background music toggle
@@ -88,17 +96,22 @@
 - [ ] Add simple garden themes (day/night, different soil colors)
 - [ ] Add pause/disable overlay option
 
-## 🧪 9. Testing & Packaging
+## ðŸ§ª 9. Testing & Packaging
+
 - [ ] Write unit tests for `GardenGame` logic
 - [ ] Test overlay on multiple OS (Windows/Mac/Linux if needed)
 - [ ] Check CPU/RAM usage of background growth tick
 - [ ] Build app package for Windows (and others if needed)
 - [ ] Test auto-launch and persistence
 
-## 🌍 10. Stretch Goals (Future Features)
+## ðŸŒ 10. Stretch Goals (Future Features)
+
 - [ ] Multi-player or friend gardens
 - [ ] Rare seeds or events
 - [ ] Weather effects or day/night cycle
 - [ ] In-game achievements
 - [ ] Mobile companion app
-- [ ] AI assistant plant buddy 🌱🤖
+- [ ] AI assistant plant buddy ðŸŒ±ðŸ¤–
+
+
+

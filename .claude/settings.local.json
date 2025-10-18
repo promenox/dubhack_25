@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(timeout:*)",
+      "Bash(pkill:*)",
+      "Bash(netstat:*)",
+      "Bash(ss:*)",
+      "Bash(npm run dev:*)",
+      "Bash(VITE_DEV_SERVER_URL=http://localhost:5173 NODE_ENV=development electron:*)",
+      "Bash(npx electron:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
