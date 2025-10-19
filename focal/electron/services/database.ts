@@ -127,6 +127,7 @@ export class DatabaseService {
 			console.log("🔌 Attempting to connect to MongoDB...");
 			await this.client.connect();
 			this.db = this.client.db(dbName);
+
 			this.scoresCollection = this.db.collection<UserScore>(collectionName);
 
 			// Create index on userId for faster queries

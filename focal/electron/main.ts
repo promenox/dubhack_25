@@ -102,18 +102,19 @@ class MainApp {
 	}
 
 	createOverlayWindow() {
-		console.log("createOverlayWindow called");
+		console.log("🪟 createOverlayWindow called");
 		if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-			console.log("Overlay window already exists, returning");
+			console.log("⚠️ Overlay window already exists, returning");
 			return;
 		}
 
-		const { width } = screen.getPrimaryDisplay().workAreaSize;
-		console.log("Screen width:", width);
+		const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+		console.log("📏 Screen dimensions:", { width, height });
 		const overlayWidth = 380;
 		const overlayHeight = 160;
 		const x = Math.round((width - overlayWidth) / 2);
 		const y = 20;
+		console.log("📍 Overlay position:", { x, y, overlayWidth, overlayHeight });
 
 		// Platform-specific overlay configuration
 		const isMac = process.platform === "darwin";
@@ -141,7 +142,7 @@ class MainApp {
 			maximizable: false,
 			minimizable: false,
 			closable: true,
-			webPreferences: {
+    webPreferences: {
 				nodeIntegration: true,
 				contextIsolation: false,
 				preload: path.join(__dirname, "preload.mjs"),
@@ -219,7 +220,7 @@ class MainApp {
 			overlayWindow.on("resize", enforceOverlaySize);
 		}
 
-		if (VITE_DEV_SERVER_URL) {
+  if (VITE_DEV_SERVER_URL) {
 			this.overlayWindow.loadURL(VITE_DEV_SERVER_URL + "#/overlay");
 		} else {
 			this.overlayWindow.loadFile(path.join(RENDERER_DIST, "index.html"), {
@@ -228,14 +229,16 @@ class MainApp {
 		}
 
 		this.overlayWindow.once("ready-to-show", () => {
-			console.log("Overlay window ready to show");
+			console.log("✅ Overlay window ready to show");
 			if (isWindows) {
+				console.log("🪟 Setting Windows-specific overlay properties...");
 				overlayWindow.setBackgroundColor("#00000000");
 				enforceOverlaySize();
 			}
-			console.log("Overlay window bounds:", this.overlayWindow?.getBounds());
-			// Window is already shown, just ensure it's on top
-			this.overlayWindow?.setAlwaysOnTop(true, "screen-saver");
+			console.log("📏 Overlay window bounds:", this.overlayWindow?.getBounds());
+			console.log("👁️ Showing overlay window (ready-to-show)...");
+			this.overlayWindow?.showInactive();
+			console.log("✅ Overlay window shown from ready-to-show event");
 		});
 
 		// After content loads, force HTML/BODY to be transparent to honor window transparency
@@ -265,23 +268,27 @@ class MainApp {
 	}
 
 	showOverlay(sessionStart: number) {
-		console.log("Creating overlay window...");
+		console.log("🪟 Creating overlay window...");
 		this.createOverlayWindow();
 		if (!this.overlayWindow) {
-			console.log("ERROR: Overlay window was not created");
+			console.log("❌ ERROR: Overlay window was not created");
 			return;
 		}
-		console.log("Overlay window created successfully");
+		console.log("✅ Overlay window created successfully");
+		console.log("📏 Overlay window bounds:", this.overlayWindow.getBounds());
+		console.log("👁️ Overlay window visible:", this.overlayWindow.isVisible());
+		console.log("🔍 Overlay window minimized:", this.overlayWindow.isMinimized());
 
-		if (this.overlayWindow.isMinimized()) this.overlayWindow.restore();
+		if (this.overlayWindow.isMinimized()) {
+			console.log("🔄 Restoring minimized overlay window...");
+			this.overlayWindow.restore();
+		}
 
-		// Ensure window is visible and on top
-		this.overlayWindow.setAlwaysOnTop(true, "screen-saver");
-		this.overlayWindow.show();
-		this.overlayWindow.focus();
-		this.overlayWindow.moveTop();
-		console.log("Overlay window shown and focused");
-		console.log("Final overlay window bounds:", this.overlayWindow.getBounds());
+		console.log("👁️ Showing overlay window...");
+		this.overlayWindow.showInactive();
+		console.log("✅ Overlay window shown");
+		console.log("📏 Final overlay window bounds:", this.overlayWindow.getBounds());
+		console.log("👁️ Final overlay window visible:", this.overlayWindow.isVisible());
 
 		// Send start event with timestamp after load
 		const sendStart = () => {
@@ -319,7 +326,7 @@ class MainApp {
 				sendStart();
 				sendInitialOverlayUpdate();
 			});
-		} else {
+  } else {
 			sendStart();
 			sendInitialOverlayUpdate();
 		}
@@ -502,11 +509,15 @@ class MainApp {
 	startTracking() {
 		this.focusTracker.start();
 
-		// Wait for window to be ready, then start sending updates
-		this.mainWindow?.webContents.once("did-finish-load", () => {
-			console.log("FocusAI Dashboard loaded, starting focus tracking...");
+		// Clear any existing update interval
+		if (this.updateInterval) {
+			clearInterval(this.updateInterval);
+			this.updateInterval = null;
+		}
 
-			// Send focus updates every 30 seconds (reduced frequency for event-driven system)
+		console.log("FocusAI starting focus tracking...");
+
+		// Start sending focus updates immediately (don't wait for window load)
 			this.updateInterval = setInterval(async () => {
 				try {
 					const currentWindow = this.focusTracker.currentWindow;
@@ -529,19 +540,25 @@ class MainApp {
 							timestamp: Date.now(),
 						};
 
+					// Send to main dashboard window
 						if (this.mainWindow && !this.mainWindow.isDestroyed()) {
 							this.mainWindow.webContents.send("focus-update", dashboardData);
+						console.log("📊 Sent focus update to dashboard:", {
+							instantaneous: focusData.instantaneous,
+							cumulative: focusData.cumulative,
+							context: focusData.context,
+						});
 						}
 
-						// Mirror to overlay with productivity scores
+					// Mirror to overlay with productivity scores
 						if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
 							this.overlayWindow.webContents.send("focus-update", {
 								windowTitle: windowSummary.windowTitle,
 								url: windowSummary.url,
-								instantaneous: focusData.instantaneous,
-								cumulative: focusData.cumulative,
-								aiInsight: focusData.aiInsight,
-								context: focusData.context,
+							instantaneous: focusData.instantaneous,
+							cumulative: focusData.cumulative,
+							aiInsight: focusData.aiInsight,
+							context: focusData.context,
 								timestamp: Date.now(),
 							});
 						}
@@ -554,8 +571,49 @@ class MainApp {
 				} catch (error) {
 					console.error("Error sending focus update:", error);
 				}
-			}, 30000); // Every 30 seconds (reduced frequency for event-driven system)
-		});
+		}, 30000); // Every 30 seconds (reduced frequency for event-driven system)
+	}
+
+	stopTracking() {
+		if (this.updateInterval) {
+			clearInterval(this.updateInterval);
+			this.updateInterval = null;
+			console.log("FocusAI tracking stopped");
+		}
+	}
+
+	async sendImmediateFocusUpdate() {
+		try {
+			const currentWindow = this.focusTracker.currentWindow;
+			if (currentWindow) {
+				const windowSummary = currentWindow.getSummary();
+				const focusData = await this.focusAI.calculateHybridScore(windowSummary);
+
+				const dashboardData = {
+					instantaneous: focusData.instantaneous,
+					cumulative: focusData.cumulative,
+					aiInsight: focusData.aiInsight,
+					context: focusData.context,
+					activeApp: windowSummary.activeApp,
+					windowTitle: windowSummary.windowTitle,
+					url: windowSummary.url,
+					switchRate: windowSummary.switchRate,
+					timestamp: Date.now(),
+				};
+
+				// Send to main dashboard window
+				if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+					this.mainWindow.webContents.send("focus-update", dashboardData);
+					console.log("📊 Sent immediate focus update to dashboard:", {
+						instantaneous: focusData.instantaneous,
+						cumulative: focusData.cumulative,
+						context: focusData.context,
+					});
+				}
+			}
+		} catch (error) {
+			console.error("Error sending immediate focus update:", error);
+		}
 	}
 
 	private startScorePersistence() {
@@ -618,13 +676,26 @@ class MainApp {
 
 		// Handle session control
 		ipcMain.on("start-session", async () => {
-			console.log("Starting focus session... YAYYYYAYAYAYAYYAYAYAYAYYAYAYAYAYAY");
-			this.sessionActive = true;
-			this.sessionStartTime = Date.now();
-			this.focusTracker.start();
-			this.startTracking();
-			this.showOverlay(this.sessionStartTime);
-			console.log("Overlay should be created and shown");
+			console.log("🎯 Starting focus session...");
+			console.log("📊 Session active:", this.sessionActive);
+			console.log("🪟 Main window exists:", !!this.mainWindow);
+			console.log("🪟 Overlay window exists:", !!this.overlayWindow);
+
+				this.sessionActive = true;
+				this.sessionStartTime = Date.now();
+
+			console.log("🚀 Starting focus tracker...");
+				this.focusTracker.start();
+
+			console.log("📡 Starting tracking updates...");
+				this.startTracking();
+
+			// Send initial focus update immediately
+			this.sendImmediateFocusUpdate();
+
+			console.log("🪟 Creating and showing overlay...");
+				this.showOverlay(this.sessionStartTime);
+			console.log("✅ Overlay creation completed");
 
 			// Begin periodic DB persistence
 			this.lastPersistedScore = Math.floor(this.focusAI.cumulativeScore);
@@ -637,6 +708,7 @@ class MainApp {
 				this.sessionActive = false;
 				this.sessionStartTime = null;
 				this.focusTracker.stop();
+				this.stopTracking();
 				this.hideOverlay();
 				this.stopScorePersistence();
 			}
@@ -782,26 +854,26 @@ class MainApp {
 
 		// Handle debug data requests
 		ipcMain.on("request-debug-data", () => {
-			const currentWindow = this.focusTracker.currentWindow;
-			if (currentWindow && !currentWindow.isComplete) {
-				const windowSummary = currentWindow.getSummary();
-				this.focusAI
-					.calculateHybridScore(windowSummary)
-					.then((focusData) => {
-						const debugData = {
-							instantaneous: focusData.instantaneous,
-							cumulative: focusData.cumulative,
-							aiInsight: focusData.aiInsight,
-							context: focusData.context,
-							activeApp: windowSummary.activeApp,
-							windowTitle: windowSummary.windowTitle,
-							url: windowSummary.url,
-							switchRate: windowSummary.switchRate,
-							baseScore: focusData.baseScore,
-							aiMultiplier: focusData.aiMultiplier,
-							focusRatio: windowSummary.focusRatio,
-							timestamp: Date.now(),
-						};
+				const currentWindow = this.focusTracker.currentWindow;
+				if (currentWindow && !currentWindow.isComplete) {
+					const windowSummary = currentWindow.getSummary();
+					this.focusAI
+						.calculateHybridScore(windowSummary)
+						.then((focusData) => {
+							const debugData = {
+								instantaneous: focusData.instantaneous,
+								cumulative: focusData.cumulative,
+								aiInsight: focusData.aiInsight,
+								context: focusData.context,
+								activeApp: windowSummary.activeApp,
+								windowTitle: windowSummary.windowTitle,
+								url: windowSummary.url,
+								switchRate: windowSummary.switchRate,
+								baseScore: focusData.baseScore,
+								aiMultiplier: focusData.aiMultiplier,
+								focusRatio: windowSummary.focusRatio,
+								timestamp: Date.now(),
+							};
 
 						// Send to both debug window (if exists) and main window
 						if (this.debugWindow && !this.debugWindow.isDestroyed()) {
@@ -812,10 +884,10 @@ class MainApp {
 						if (this.mainWindow && !this.mainWindow.isDestroyed()) {
 							this.mainWindow.webContents.send("focus-update", debugData);
 						}
-					})
-					.catch((error) => {
-						console.error("Error calculating debug data:", error);
-					});
+						})
+						.catch((error) => {
+							console.error("Error calculating debug data:", error);
+						});
 			}
 		});
 	}
@@ -899,7 +971,7 @@ app.whenReady().then(() => {
 	mainApp.setupIPC();
 
 	app.on("activate", () => {
-		if (BrowserWindow.getAllWindows().length === 0) {
+  if (BrowserWindow.getAllWindows().length === 0) {
 			mainApp.createWindow();
 		}
 	});
