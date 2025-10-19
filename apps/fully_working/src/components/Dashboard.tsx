@@ -49,8 +49,8 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 		const degrees = (percentage / 100) * 360;
 
 		circle.style.background = `conic-gradient(
-      var(--success-gradient) ${degrees}deg,
-      var(--glass-border) ${degrees}deg
+      var(--accent-success) ${degrees}deg,
+      var(--progress-track) ${degrees}deg
     )`;
 	};
 
@@ -207,17 +207,17 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 		return icons[type] || "⚙️";
 	};
 
-	const getActivityGradient = (type: string) => {
-		const gradients: Record<string, string> = {
-			coding: "var(--success-gradient)",
-			media: "var(--secondary-gradient)",
-			communication: "var(--warning-gradient)",
-			"ai-tools": "var(--primary-gradient)",
-			browsing: "var(--glass-border)",
-			productivity: "var(--success-gradient)",
-			other: "var(--glass-border)",
+	const getActivityTint = (type: string) => {
+		const palette: Record<string, string> = {
+			coding: "rgba(73, 214, 141, 0.16)",
+			media: "rgba(240, 104, 179, 0.16)",
+			communication: "rgba(138, 157, 255, 0.16)",
+			"ai-tools": "rgba(243, 197, 98, 0.16)",
+			browsing: "rgba(80, 83, 95, 0.16)",
+			productivity: "rgba(85, 183, 229, 0.16)",
+			other: "rgba(61, 64, 74, 0.16)",
 		};
-		return gradients[type] || "var(--glass-border)";
+		return palette[type] || "rgba(90, 90, 90, 0.2)";
 	};
 
 	const getDomainFromUrl = (url: string) => {
@@ -370,7 +370,7 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 						<div className="activity-feed">
 							{activityHistory.length === 0 ? (
 								<div className="activity-item">
-									<div className="activity-icon" style={{ background: "var(--success-gradient)" }}>
+									<div className="activity-icon" style={{ background: getActivityTint("coding") }}>
 										💻
 									</div>
 									<div className="activity-content">
@@ -383,7 +383,7 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 									<div key={index} className="activity-item">
 										<div
 											className="activity-icon"
-											style={{ background: getActivityGradient(activity.type) }}
+											style={{ background: getActivityTint(activity.type) }}
 										>
 											{getActivityIcon(activity.type)}
 										</div>
@@ -480,7 +480,7 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 											<span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
 												Status:
 											</span>
-											<span style={{ color: "#43e97b", fontWeight: 600 }}>Active</span>
+											<span style={{ color: "var(--accent-success)", fontWeight: 600 }}>Active</span>
 										</div>
 									</div>
 									<button className="btn btn-danger" onClick={stopSession}>
