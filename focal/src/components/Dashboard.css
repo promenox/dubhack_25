@@ -1338,6 +1338,7 @@ button:not(:disabled):active {
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 24px;
   margin-top: 24px;
+  grid-auto-rows: 340px; /* establish row height so items can span */
 }
 
 /* Hero Banner */
@@ -1389,13 +1390,15 @@ button:not(:disabled):active {
 }
 
 .btn-hero:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 0 22px rgba(0, 255, 64, 0.35);
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-hero-primary {
-  background: var(--primary-gradient);
-  border-color: rgba(0, 255, 64, 0.45);
+  background: #000000;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: none;
 }
 
 .btn-hero-secondary {
@@ -1528,7 +1531,9 @@ button:not(:disabled):active {
 
 /* Leaderboard Card Styles */
 .leaderboard-card {
-  grid-column: span 2;
+  grid-column: 1 / -1; /* full row width */
+  min-height: 420px; /* reduced height */
+  grid-row: auto; /* no extra row span */
 }
 
 .leaderboard {
@@ -1587,7 +1592,7 @@ button:not(:disabled):active {
 .leaderboard-error,
 .leaderboard-empty {
   text-align: center;
-  padding: 20px;
+    padding: 20px;
   color: var(--text-secondary);
   font-style: italic;
 }
@@ -1683,7 +1688,12 @@ button:not(:disabled):active {
 
 .leaderboard-list-card {
   margin-bottom: 24px;
+  min-height: 720px; /* ensure alternate leaderboard card variant is also taller */
 }
+
+/* Ensure inner leaderboard container stretches */
+.leaderboard { min-height: 100%; }
+.leaderboard-list { min-height: 100%; overflow-y: auto; }
 
 .leaderboard-list--spacious {
   gap: 12px;
@@ -1714,3 +1724,759 @@ button:not(:disabled):active {
   }
 }
 
+/* ===== Clean Modern UI Override ===== */
+
+:root {
+  /* Exact Garden palette */
+  --bg-primary: #0c1115;
+  --bg-surface: #141a1f;
+  --bg-surface-alt: #1b2228;
+  --bg-surface-soft: #1f272e;
+  --border-color: rgba(101, 232, 189, 0.18);
+  --border-subtle: rgba(101, 232, 189, 0.08);
+  --text-primary: #eef8f3;
+  --text-secondary: rgba(215, 237, 229, 0.72);
+  --accent: #59dcb2;
+  --accent-strong: #7ef5c9;
+  --accent-soft: rgba(89, 220, 178, 0.16);
+  --danger: #f87171;
+  --border-radius: 1.5rem;
+  --border-radius-sm: 0.65rem;
+  --transition: all 0.18s ease;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --shadow-hover: 0 10px 36px rgba(0, 0, 0, 0.45);
+  --shadow-glow: 0 0 24px rgba(89, 220, 178, 0.20);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background: var(--bg-primary);
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  background: var(--bg-primary);
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  background: #00ff6a;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  font-size: 16px;
+}
+
+.logo-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+.nav-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.nav-icon {
+  font-size: 16px;
+  margin-right: 10px;
+  width: 20px;
+  text-align: center;
+}
+
+.nav-label {
+  font-weight: 500;
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  padding: 16px 18px;
+  background: var(--bg-primary);
+  overflow-y: auto;
+}
+
+.dashboard-header {
+  margin-bottom: 20px;
+}
+
+.dashboard-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.dashboard-subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+}
+
+/* Sections */
+.dashboard-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--border-radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.section-header {
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.section-subtitle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Metrics Grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.metric-card {
+  background: #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 14px;
+  transition: var(--transition);
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  border-color: #00ff6a;
+}
+
+.metric-card.primary {
+  border-left: 3px solid #00ff6a;
+}
+
+.metric-card.secondary {
+  border-left: 3px solid #00aaff;
+}
+
+.metric-card.accent {
+  border-left: 3px solid #ffaa00;
+}
+
+.metric-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.metric-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  font-size: 12px;
+  background: rgba(0, 255, 106, 0.1);
+  color: #00ff6a;
+}
+
+.metric-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.metric-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.metric-description {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Insights Grid */
+.insights-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Control Panel */
+.control-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.control-card {
+  background: #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 14px;
+  transition: var(--transition);
+}
+
+.control-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  border-color: #00ff6a;
+}
+
+.control-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.control-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  font-size: 12px;
+  background: rgba(0, 255, 106, 0.1);
+  color: #00ff6a;
+}
+
+.control-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.control-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.session-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.stat-value {
+  font-size: 11px;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.stat-value.active {
+  color: #00ff6a;
+}
+
+/* Cards */
+.card {
+  background: #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 16px;
+  transition: var(--transition);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  border-color: #00ff6a;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.card-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  background: rgba(0, 255, 106, 0.1);
+  color: #00ff6a;
+}
+
+/* Activity Feed */
+.activity-feed {
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+  margin: 0 -16px;
+  padding: 6px 16px;
+  border-radius: 4px;
+}
+
+.activity-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  font-size: 11px;
+  background: rgba(0, 255, 106, 0.1);
+  color: #00ff6a;
+}
+
+.activity-content {
+  flex: 1;
+}
+
+.activity-text {
+  font-size: 11px;
+  color: #ffffff;
+  margin-bottom: 2px;
+}
+
+.activity-time {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Insights */
+.insight-item {
+  background: #333333;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 8px;
+  transition: var(--transition);
+}
+
+.insight-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.insight-text {
+  font-size: 11px;
+  color: #ffffff;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.insight-timestamp {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Compact hero/session headers */
+.session-title,
+.hero-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  text-shadow: none;
+}
+
+.hero-content {
+  padding: 14px 18px;
+}
+
+.hero-banner {
+  box-shadow: none;
+}
+
+/* Compact score circles */
+.score-circle {
+  width: 64px;
+  height: 64px;
+}
+.score-circle::before {
+  width: 46px;
+  height: 46px;
+}
+.score-value {
+  font-size: 18px;
+}
+
+/* Buttons */
+button {
+  font: inherit;
+  cursor: pointer;
+  background: #00ff6a;
+  border: none;
+  color: #000000;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  transition: var(--transition);
+}
+
+button:hover {
+  background: #00ff8a;
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.control-button.primary {
+  background: #00ff6a;
+  color: #000000;
+}
+
+.control-button.danger {
+  background: #ff4444;
+  color: #ffffff;
+}
+
+.control-button.secondary {
+  background: #333333;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.control-button.secondary:hover {
+  background: #444444;
+  border-color: #00ff6a;
+}
+
+/* Start Focus Session button: solid green, no neon/glow on hover */
+.control-button.primary {
+  background: var(--accent) !important;
+  color: #062a1f !important;
+  border: 1px solid var(--border-subtle);
+  box-shadow: none;
+}
+
+.control-button.primary:hover,
+.control-button.primary:focus,
+.control-button.primary:active {
+  background: var(--accent) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 200px;
+  }
+  
+  .main-content {
+    padding: 16px;
+  }
+  
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .insights-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .control-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Final Overrides: Light Grey Boxes + Fill Space ===== */
+.dashboard-sections { gap: 12px; }
+
+/* Make containers flex so children can stretch */
+.section { display: flex; flex-direction: column; }
+
+/* Lighter box surfaces */
+.section,
+.card,
+.metric-card,
+.control-card,
+.insight-item {
+  background: #e8ecef; /* light grey */
+  color: #0d1312;      /* dark text for contrast */
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+
+/* Ensure internal headings remain readable on light bg */
+.card-title,
+.section-title,
+.metric-value,
+.metric-label,
+.section-subtitle,
+.stat-label,
+.stat-value,
+.insight-text,
+.insight-timestamp { color: #0d1312; }
+
+/* Stretch cards to fill grid cells */
+.metric-card,
+.control-card,
+.card,
+.insight-item { height: 100%; }
+
+/* Denser, full-width grids so boxes occupy space */
+.metrics-grid { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.control-panel { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; }
+.insights-grid { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; }
+
+/* ===== Garden Page Coloring Override (final) ===== */
+/* Restore garden look: deep teal glass + mint accents */
+.section,
+.card,
+.metric-card,
+.control-card,
+.insight-item {
+  background: var(--bg-surface);           /* deep teal surface */
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.metric-icon,
+.control-icon { background: var(--accent-soft); color: var(--accent); }
+
+.card:hover,
+.metric-card:hover,
+.control-card:hover,
+.insight-item:hover,
+.section:hover {
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-hover), var(--shadow-glow);
+}
+
+.card-title,
+.section-title,
+.metric-value,
+.metric-label,
+.section-subtitle,
+.stat-label,
+.stat-value,
+.insight-text,
+.insight-timestamp { color: var(--text-primary); }
+
+/* Match Garden container spacing and grid density */
+.metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.insights-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.control-panel { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+
+@media (max-width: 1200px) {
+  .metrics-grid, .insights-grid, .control-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+  .metrics-grid, .insights-grid, .control-panel { grid-template-columns: 1fr; }
+}
+
+/* Exact Garden card look */
+.main-content { max-width: none; width: 100%; margin: 0 auto; }
+
+.card, .metric-card, .control-card {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1.5rem;
+  box-shadow: 0 12px 28px rgba(6, 12, 14, 0.32);
+}
+
+.card:hover, .metric-card:hover, .control-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 16px 32px rgba(6, 12, 14, 0.38), 0 0 24px rgba(89, 220, 178, 0.20);
+}
+
+.metric-label, .section-subtitle { color: var(--text-secondary); }
+.section-title, .card-title, .metric-value { color: var(--text-primary); }
+
+/* ===== Final layout tweaks to match reference (2-up horizontal cards with glow) ===== */
+.main-content { max-width: 1440px; width: 100%; margin: 0 auto; }
+
+.metrics-grid,
+.insights-grid,
+.control-panel {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+
+@media (max-width: 1024px) {
+  .metrics-grid, .insights-grid, .control-panel { grid-template-columns: 1fr; }
+}
+
+/* Card glow similar to screenshot */
+.card, .metric-card, .control-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--border-radius);
+  box-shadow:
+    0 0 0 2px rgba(126, 245, 201, 0.22),
+    0 14px 30px rgba(0, 0, 0, 0.45);
+  min-height: 300px;
+  padding: 28px;
+}
+
+.card:hover, .metric-card:hover, .control-card:hover {
+  box-shadow:
+    0 0 0 2px rgba(126, 245, 201, 0.30),
+    0 18px 36px rgba(0, 0, 0, 0.50);
+}
+
+/* Final override: enlarge score circles */
+.score-circle { width: 120px; height: 120px; }
+.score-circle::before { width: 92px; height: 92px; }
+.score-value { font-size: 36px; }
+
+/* Stack and center score visuals and text */
+.score-display {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.score-label,
+.metric-description {
+  text-align: center;
+}
+
+/* Final color override: make boxes black */
+.section,
+.card,
+.metric-card,
+.control-card,
+.insight-item {
+  background: #000000 !important;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+/* Sidebar: solid black */
+.sidebar {
+  background: #000000 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Ensure inner surfaces are pure black as well */
+.card::before { background: transparent !important; }
+.score-circle::before { background: #000000 !important; }
+.activity-item { background: transparent; }
+.activity-item:hover { background: rgba(0,0,0,0.4); }
