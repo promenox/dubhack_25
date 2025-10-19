@@ -187,6 +187,9 @@ body {
 
 .dashboard-header {
   margin-bottom: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .dashboard-title {
@@ -203,6 +206,25 @@ body {
   color: var(--text-secondary);
   font-size: 16px;
   font-weight: 400;
+}
+
+.sign-out-button {
+  padding: 10px 20px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  backdrop-filter: blur(10px);
+}
+
+.sign-out-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
 }
 
 /* Premium Cards */

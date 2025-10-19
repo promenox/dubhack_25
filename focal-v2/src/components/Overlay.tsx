@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { OverlayData, SessionData } from "../types/ipc";
 import "./Overlay.css";
 
@@ -10,11 +10,11 @@ const Overlay = () => {
 	const [keystrokeCount, setKeystrokeCount] = useState<number>(0);
 	const [mouseRate, setMouseRate] = useState<number>(0);
 	const [startTime, setStartTime] = useState<number | null>(null);
-	const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
+	const timerRef = useRef<NodeJS.Timeout | null>(null);
 
 	const pad = (n: number) => (n < 10 ? "0" + n : "" + n);
 
-	const render = () => {
+	const render = useCallback(() => {
 		if (startTime === null) return;
 		const elapsed = Date.now() - startTime;
 		const totalSeconds = Math.floor(elapsed / 1000);
@@ -22,20 +22,32 @@ const Overlay = () => {
 		const m = Math.floor((totalSeconds % 3600) / 60);
 		const s = totalSeconds % 60;
 		setTime(`${pad(h)}:${pad(m)}:${pad(s)}`);
-	};
+	}, [startTime]);
 
-	const start = (ts?: number) => {
-		const timestamp = ts || Date.now();
-		setStartTime(timestamp);
+	const start = useCallback(
+		(ts?: number) => {
+			const timestamp = ts || Date.now();
+			setStartTime(timestamp);
 
-		if (timer) clearInterval(timer);
-		const newTimer = setInterval(render, 1000);
-		setTimer(newTimer);
-	};
+			// Clear any existing timer
+			if (timerRef.current) {
+				clearInterval(timerRef.current);
+			}
 
-	const stop = () => {
-		if (timer) clearInterval(timer);
-		setTimer(null);
+			// Start new timer
+			timerRef.current = setInterval(render, 1000);
+
+			// Initial render
+			render();
+		},
+		[render]
+	);
+
+	const stop = useCallback(() => {
+		if (timerRef.current) {
+			clearInterval(timerRef.current);
+			timerRef.current = null;
+		}
 		setStartTime(null);
 		setTime("00:00:00");
 		setTitle("—");
@@ -43,25 +55,27 @@ const Overlay = () => {
 		setKeystrokeRate(0);
 		setKeystrokeCount(0);
 		setMouseRate(0);
-	};
+	}, []);
 
+	// Update timer display when startTime changes
 	useEffect(() => {
 		render();
-	}, [startTime]);
+	}, [render]);
 
+	// Setup IPC listeners once
 	useEffect(() => {
 		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
 		if (!ipcRenderer) return;
 
-		ipcRenderer.on("session-started", (_e: any, payload: SessionData) => {
+		const handleSessionStarted = (_e: any, payload: SessionData) => {
 			start(payload && payload.startTime);
-		});
+		};
 
-		ipcRenderer.on("session-stopped", () => {
+		const handleSessionStopped = () => {
 			stop();
-		});
+		};
 
-		ipcRenderer.on("focus-update", (_e: any, data: OverlayData) => {
+		const handleFocusUpdate = (_e: any, data: OverlayData) => {
 			if (data && typeof data.windowTitle === "string") {
 				setTitle(data.windowTitle || "—");
 			}
@@ -77,15 +91,21 @@ const Overlay = () => {
 			if (data && typeof data.mouseMovementRate === "number") {
 				setMouseRate(data.mouseMovementRate);
 			}
-		});
+		};
+
+		ipcRenderer.on("session-started", handleSessionStarted);
+		ipcRenderer.on("session-stopped", handleSessionStopped);
+		ipcRenderer.on("focus-update", handleFocusUpdate);
 
 		return () => {
-			if (timer) clearInterval(timer);
-			ipcRenderer.removeAllListeners("session-started");
-			ipcRenderer.removeAllListeners("session-stopped");
-			ipcRenderer.removeAllListeners("focus-update");
+			if (timerRef.current) {
+				clearInterval(timerRef.current);
+			}
+			ipcRenderer.removeListener("session-started", handleSessionStarted);
+			ipcRenderer.removeListener("session-stopped", handleSessionStopped);
+			ipcRenderer.removeListener("focus-update", handleFocusUpdate);
 		};
-	}, [timer]);
+	}, [start, stop]);
 
 	return (
 		<div className="overlay-container">
