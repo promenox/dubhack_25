@@ -249,7 +249,7 @@ const Garden = () => {
 					<span className="app__titlebar-back-text">Dashboard</span>
 				</button>
 				<span className="app__titlebar-tagline">Grow Your Productivity Garden</span>
-				<span className="app__titlebar-version">Electron {electronVersion}</span>
+				<span className="app__titlebar-version">DH '2025</span>
 			</header>
 
 			{toast && (
