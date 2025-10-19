@@ -4,6 +4,7 @@ import { SEED_LIBRARY } from '@core/gardenGame';
 import { getPlantIconSrc } from '@ui/assets/plantIcons';
 import { PlantVisual, getStageLabel } from '@ui/components/PlantVisual';
 import '@ui/styles.css';
+import '@ui/overlay.css';
 
 const OverlayApp = () => {
   const [gardenState, setGardenState] = useState<GardenState | null>(null);
