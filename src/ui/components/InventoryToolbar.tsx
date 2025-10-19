@@ -39,10 +39,10 @@ export const InventoryToolbar = ({
 
   const handleDragStart =
     (seedType: PlantType): React.DragEventHandler<HTMLDivElement> =>
-    (event) => {
-      event.dataTransfer.effectAllowed = 'copy';
-      event.dataTransfer.setData(DRAG_TYPE, seedType);
-    };
+      (event) => {
+        event.dataTransfer.effectAllowed = 'copy';
+        event.dataTransfer.setData(DRAG_TYPE, seedType);
+      };
 
   return (
     <footer className="inventory-toolbar" aria-label="Inventory toolbar">
@@ -66,7 +66,14 @@ export const InventoryToolbar = ({
                 <div className="inventory-toolbar__seed-info">
                   <span className="inventory-toolbar__seed-name">{seed.displayName}</span>
                   <span className="inventory-toolbar__seed-meta">
-                    {formatMinutes(seed.growthDuration)} · +{seed.harvestReward} coins
+                    <span className="inventory-toolbar__seed-meta-time">
+                      <span className="inventory-toolbar__clock-icon" aria-hidden="true" />
+                      {formatMinutes(seed.growthDuration)}
+                    </span>
+                    <span className="inventory-toolbar__seed-meta-reward">
+                      <span className="inventory-toolbar__seed-coin-icon" aria-hidden="true" />
+                      +{seed.harvestReward}
+                    </span>
                   </span>
                 </div>
               </div>

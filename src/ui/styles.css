@@ -293,6 +293,10 @@ button:not(:disabled):active {
   border-radius: 0.85rem;
   padding: 0.6rem 0.85rem;
   min-width: 180px;
+  /* Keep a consistent taller height to allow up to two title lines */
+  min-height: 68px;
+  /* Do not allow shrinking so long meta expands horizontally */
+  flex: 0 0 auto;
   cursor: grab;
   position: relative;
   transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
@@ -301,16 +305,88 @@ button:not(:disabled):active {
 .inventory-toolbar__seed-info {
   display: grid;
   gap: 0.2rem;
+  /* Allow this grid to shrink so children can ellipsis */
+  min-width: 0;
 }
 
 .inventory-toolbar__seed-name {
   font-weight: 600;
   letter-spacing: 0.03em;
+  /* Allow up to two lines, then ellipsis */
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
 }
 
 .inventory-toolbar__seed-meta {
   font-size: 0.8rem;
   color: var(--text-secondary);
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  /* Do not wrap to keep consistent height */
+  white-space: nowrap;
+  flex-wrap: nowrap;
+  /* Let the chip grow horizontally instead of clipping */
+  overflow: visible;
+}
+
+.inventory-toolbar__seed-meta-time {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.inventory-toolbar__seed-meta-reward {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.inventory-toolbar__clock-icon {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.inventory-toolbar__clock-icon::before,
+.inventory-toolbar__clock-icon::after {
+  content: '';
+  position: absolute;
+  background: currentColor;
+}
+
+.inventory-toolbar__clock-icon::before {
+  width: 1.5px;
+  height: 0.2rem;
+  left: 50%;
+  top: 0.1rem;
+  transform: translateX(-50%);
+}
+
+.inventory-toolbar__clock-icon::after {
+  width: 1.5px;
+  height: 0.2rem;
+  left: 50%;
+  bottom: 0.1rem;
+  transform: translateX(-50%);
+}
+
+.inventory-toolbar__seed-coin-icon {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #fff6b2, #facc15 55%, #d9981f);
+  box-shadow: inset 0 1px 2px rgba(250, 204, 21, 0.3);
+  flex: 0 0 auto;
 }
 
 .inventory-toolbar__seed-count {

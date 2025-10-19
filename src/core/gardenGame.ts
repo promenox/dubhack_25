@@ -15,7 +15,9 @@ export interface SeedDefinition {
   icon: string;
 }
 
-export const SEED_LIBRARY: Record<PlantType, SeedDefinition> = {
+type LibraryPlantType = PlantType;
+
+export const SEED_LIBRARY: Record<LibraryPlantType, SeedDefinition> = {
   seedling: {
     type: 'seedling',
     displayName: 'Morning Sprout',
@@ -29,37 +31,46 @@ export const SEED_LIBRARY: Record<PlantType, SeedDefinition> = {
     type: 'blossom',
     displayName: 'Blooming Lilac',
     description: 'Balanced growth and reward.',
-    growthDuration: 180,
-    harvestReward: 14,
-    seedCost: 6,
+    growthDuration: 300,
+    harvestReward: 20,
+    seedCost: 5,
     icon: 'blossom.svg'
   },
   evergreen: {
     type: 'evergreen',
     displayName: 'Evergreen Sapling',
     description: 'Slow grower with generous harvest.',
-    growthDuration: 420,
-    harvestReward: 30,
-    seedCost: 12,
+    growthDuration: 600,
+    harvestReward: 50,
+    seedCost: 10,
     icon: 'evergreen.svg'
   },
   rose: {
     type: 'rose',
     displayName: 'Crimson Rose',
     description: 'Short bloom with a bold harvest bonus.',
-    growthDuration: 240,
-    harvestReward: 22,
-    seedCost: 10,
+    growthDuration: 1200,
+    harvestReward: 70,
+    seedCost: 30,
     icon: 'rose.svg'
   },
   lavender: {
     type: 'lavender',
     displayName: 'Moonlit Lavender',
     description: 'A calming mid-length grower with steady returns.',
-    growthDuration: 300,
-    harvestReward: 24,
-    seedCost: 11,
+    growthDuration: 1800,
+    harvestReward: 150,
+    seedCost: 90,
     icon: 'lavender.svg'
+  },
+  beanstalk: {
+    type: 'beanstalk',
+    displayName: 'Skyward Beanstalk',
+    description: 'Tall climber with a hearty harvest for patient gardeners.',
+    growthDuration: 3600,
+    harvestReward: 300,
+    seedCost: 150,
+    icon: 'beanstalk.svg'
   }
 };
 
