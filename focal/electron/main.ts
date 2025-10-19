@@ -702,9 +702,21 @@ class MainApp {
 			this.startScorePersistence();
 		});
 
-		ipcMain.on("stop-session", () => {
+		ipcMain.on("stop-session", async () => {
 			console.log("Stopping focus session...");
 			if (this.sessionActive) {
+				// Persist final cumulative score immediately so DB reflects total
+				try {
+					const finalScore = Math.floor(this.focusAI.cumulativeScore);
+					if (typeof finalScore === "number" && !Number.isNaN(finalScore)) {
+						await databaseService.setScore(finalScore);
+						this.lastPersistedScore = finalScore;
+						console.log(`💾 Final cumulative score persisted to DB: ${finalScore}`);
+					}
+				} catch (error: unknown) {
+					console.warn("⚠️ Failed to persist final score on stop:", (error as Error)?.message || error);
+				}
+
 				this.sessionActive = false;
 				this.sessionStartTime = null;
 				this.focusTracker.stop();
