@@ -9,6 +9,11 @@ import { FocusAI } from "./focus-ai";
 import { FocusTracker } from "./focus-tracker";
 import { databaseService } from "./services/database";
 
+// Do NOT disable GPU on Windows; transparency and blur effects require hardware acceleration
+// if (process.platform === "win32") {
+// 	app.disableHardwareAcceleration();
+// }
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // The built directory structure
@@ -64,6 +69,7 @@ class MainApp {
 			minHeight: 700,
 			frame: true,
 			titleBarStyle: "hiddenInset",
+			autoHideMenuBar: true,
 			backgroundColor: "#0f0f0f",
 			show: false,
 			webPreferences: {
@@ -72,6 +78,8 @@ class MainApp {
 				preload: path.join(__dirname, "preload.mjs"),
 			},
 		});
+
+		this.mainWindow.removeMenu();
 
 		console.log("Loading main window...");
 
@@ -111,7 +119,7 @@ class MainApp {
 		const isMac = process.platform === "darwin";
 		const isWindows = process.platform === "win32";
 
-		const overlayConfig: any = {
+		const overlayConfig: Electron.BrowserWindowConstructorOptions = {
 			width: overlayWidth,
 			height: overlayHeight,
 			minWidth: 300,
@@ -122,7 +130,7 @@ class MainApp {
 			y,
 			frame: false,
 			transparent: true,
-			resizable: true,
+			resizable: !isWindows,
 			movable: true,
 			alwaysOnTop: true,
 			skipTaskbar: true,
@@ -143,7 +151,8 @@ class MainApp {
 		// macOS-specific settings
 		if (isMac) {
 			overlayConfig.titleBarStyle = "hidden";
-			overlayConfig.vibrancy = "dark";
+			// Use a supported vibrancy type
+			overlayConfig.vibrancy = "under-window";
 			overlayConfig.visualEffectState = "active";
 		}
 
@@ -151,30 +160,63 @@ class MainApp {
 		if (isWindows) {
 			overlayConfig.autoHideMenuBar = true;
 			overlayConfig.thickFrame = false;
+			overlayConfig.hasShadow = false;
+			// IMPORTANT: Do NOT set backgroundMaterial (like 'acrylic') when using transparent windows
+			// as it will break true transparency on Windows.
 		}
 
-		this.overlayWindow = new BrowserWindow(overlayConfig);
+		const baseOverlaySize = { width: overlayWidth, height: overlayHeight };
+
+		const overlayWindow = new BrowserWindow({
+			...overlayConfig,
+			// Ensure client area sizing is consistent and not impacted by frame metrics
+			useContentSize: true,
+		});
+
+		this.overlayWindow = overlayWindow;
+
+		if (!overlayWindow.isDestroyed()) {
+			const [createdWidth, createdHeight] = overlayWindow.getSize();
+			baseOverlaySize.width = createdWidth;
+			baseOverlaySize.height = createdHeight;
+		}
+
+		const enforceOverlaySize = () => {
+			if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
+			const [currentWidth, currentHeight] = this.overlayWindow.getSize();
+			if (currentWidth !== baseOverlaySize.width || currentHeight !== baseOverlaySize.height) {
+				this.overlayWindow.setSize(baseOverlaySize.width, baseOverlaySize.height, false);
+			}
+		};
 
 		// Platform-specific window behavior
 		if (isMac) {
-			this.overlayWindow.setAlwaysOnTop(true, "screen-saver");
-			this.overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+			overlayWindow.setAlwaysOnTop(true, "screen-saver");
+			overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 			// Enable click-through for macOS
-			this.overlayWindow.setIgnoreMouseEvents(false);
+			overlayWindow.setIgnoreMouseEvents(false);
 			// macOS: Make overlay visible across all spaces and full-screen apps
-			this.overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+			overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 		} else if (isWindows) {
-			this.overlayWindow.setAlwaysOnTop(true, "screen-saver");
+			overlayWindow.setAlwaysOnTop(true, "screen-saver");
 			// Windows-specific transparency handling
-			this.overlayWindow.setIgnoreMouseEvents(false);
+			overlayWindow.setIgnoreMouseEvents(false);
 			// Windows: Set window level to stay above all windows
 			try {
 				// Use Windows-specific API if available
-				this.overlayWindow.setAlwaysOnTop(true, "floating");
-			} catch (_) {
-				// Fallback
-				this.overlayWindow.setAlwaysOnTop(true, "screen-saver");
+				overlayWindow.setAlwaysOnTop(true, "floating");
+			} catch (_err) {
+				// Fallback to screen-saver level when floating not available
+				overlayWindow.setAlwaysOnTop(true, "screen-saver");
 			}
+			overlayWindow.setHasShadow(false);
+			overlayWindow.setBackgroundColor("#00000000");
+			overlayWindow.setResizable(false);
+			overlayWindow.on("will-resize", (event) => {
+				event.preventDefault();
+				enforceOverlaySize();
+			});
+			overlayWindow.on("resize", enforceOverlaySize);
 		}
 
 		if (VITE_DEV_SERVER_URL) {
@@ -187,8 +229,25 @@ class MainApp {
 
 		this.overlayWindow.once("ready-to-show", () => {
 			console.log("Overlay window ready to show");
+			if (isWindows) {
+				overlayWindow.setBackgroundColor("#00000000");
+				enforceOverlaySize();
+			}
 			console.log("Overlay window bounds:", this.overlayWindow?.getBounds());
 			this.overlayWindow?.showInactive();
+		});
+
+		// After content loads, force HTML/BODY to be transparent to honor window transparency
+		this.overlayWindow.webContents.on("did-finish-load", () => {
+			try {
+				this.overlayWindow?.webContents.insertCSS(
+					"html, body { background: transparent !important; background-color: transparent !important; }"
+				);
+				// Double-ensure background color at the window level remains transparent
+				this.overlayWindow?.setBackgroundColor("#00000000");
+			} catch (_err) {
+				// no-op: transparency CSS injection is best-effort
+			}
 		});
 
 		this.overlayWindow.on("closed", () => {
@@ -224,7 +283,7 @@ class MainApp {
 			try {
 				this.overlayWindow?.webContents.send("session-started", { startTime: sessionStart });
 				console.log("Session start event sent to overlay");
-			} catch (error) {
+			} catch (error: unknown) {
 				console.error("Error sending session start event:", error);
 			}
 		};
@@ -245,7 +304,7 @@ class MainApp {
 					"Initial overlay focus-update sent with restored cumulative score:",
 					this.focusAI.cumulativeScore
 				);
-			} catch (error) {
+			} catch (error: unknown) {
 				console.error("Error sending initial overlay update:", error);
 			}
 		};
@@ -269,7 +328,9 @@ class MainApp {
 		if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
 		try {
 			this.overlayWindow.webContents.send("session-stopped");
-		} catch (_) {}
+		} catch (_err) {
+			// no-op: overlay stop is best-effort
+		}
 		this.overlayWindow.hide();
 		this.stopOverlayUpdates();
 	}
@@ -291,7 +352,7 @@ class MainApp {
 		const isMac = process.platform === "darwin";
 		const isWindows = process.platform === "win32";
 
-		const overlayConfig: any = {
+		const overlayConfig: Electron.BrowserWindowConstructorOptions = {
 			width: overlayWidth,
 			height: overlayHeight,
 			minWidth: 200,
@@ -323,7 +384,8 @@ class MainApp {
 		// macOS-specific settings
 		if (isMac) {
 			overlayConfig.titleBarStyle = "hidden";
-			overlayConfig.vibrancy = "dark";
+			// Avoid unsupported vibrancy string literals; leave default vibrancy for compatibility
+			// overlayConfig.vibrancy = "under-window";
 			overlayConfig.visualEffectState = "active";
 		}
 
@@ -331,6 +393,7 @@ class MainApp {
 		if (isWindows) {
 			overlayConfig.autoHideMenuBar = true;
 			overlayConfig.thickFrame = false;
+			overlayConfig.resizable = false;
 		}
 
 		this.plantOverlayWindow = new BrowserWindow(overlayConfig);
@@ -345,7 +408,7 @@ class MainApp {
 			this.plantOverlayWindow.setIgnoreMouseEvents(false);
 			try {
 				this.plantOverlayWindow.setAlwaysOnTop(true, "floating");
-			} catch (_) {
+			} catch (err) {
 				this.plantOverlayWindow.setAlwaysOnTop(true, "screen-saver");
 			}
 		}
@@ -358,8 +421,21 @@ class MainApp {
 			});
 		}
 
+		// Ensure the plant overlay honors transparent window background
+		this.plantOverlayWindow.webContents.on("did-finish-load", () => {
+			try {
+				this.plantOverlayWindow?.webContents.insertCSS(
+					"html, body { background: transparent !important; background-color: transparent !important; }"
+				);
+				this.plantOverlayWindow?.setBackgroundColor("#00000000");
+			} catch (_err) {
+				// no-op: transparency CSS injection is best-effort
+			}
+		});
+
 		this.plantOverlayWindow.once("ready-to-show", () => {
 			console.log("Plant overlay window ready to show");
+			this.plantOverlayWindow?.setBackgroundColor("#00000000");
 			this.plantOverlayWindow?.showInactive();
 		});
 
@@ -405,7 +481,9 @@ class MainApp {
 						timestamp: Date.now(),
 					});
 				}
-			} catch (_) {}
+			} catch (_err) {
+				// no-op: overlay move is best-effort
+			}
 		}, 5000); // Every 5 seconds for overlay updates
 	}
 
@@ -486,9 +564,9 @@ class MainApp {
 					this.lastPersistedScore = current;
 					console.log(`💾 Persisted cumulative score to DB: ${current}`);
 				}
-			} catch (error: any) {
+			} catch (error: unknown) {
 				// Non-fatal; keep app running even if DB write fails
-				console.warn("⚠️ Failed to persist score:", error?.message || error);
+				console.warn("⚠️ Failed to persist score:", (error as Error)?.message || error);
 			}
 		}, 30000);
 	}
@@ -522,7 +600,9 @@ class MainApp {
 			if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
 				try {
 					this.overlayWindow.setPosition(Math.round(x), Math.round(y));
-				} catch (_) {}
+				} catch (_err) {
+					// no-op: plant overlay move is best-effort
+				}
 			}
 		});
 
@@ -593,7 +673,9 @@ class MainApp {
 			if (this.plantOverlayWindow && !this.plantOverlayWindow.isDestroyed()) {
 				try {
 					this.plantOverlayWindow.setPosition(Math.round(x), Math.round(y));
-				} catch (_) {}
+				} catch (_err) {
+					// no-op: plant overlay move is best-effort
+				}
 			}
 		});
 
@@ -624,8 +706,8 @@ class MainApp {
 					});
 					console.log("Overlay updated immediately after score restore");
 				}
-			} catch (error: any) {
-				console.error("❌ Failed to restore FocusAI score:", error.message);
+			} catch (error: unknown) {
+				console.error("❌ Failed to restore FocusAI score:", (error as Error).message ?? error);
 				console.warn("⚠️ Database unavailable. FocusAI will start with default score of 0");
 				console.warn(
 					"⚠️ To enable database sync, set up MongoDB credentials in .env file (see MONGODB_SETUP.md)"
@@ -638,9 +720,9 @@ class MainApp {
 			try {
 				const score = await databaseService.fetchScore();
 				return { success: true, score };
-			} catch (error: any) {
-				console.error("Error fetching score:", error.message);
-				return { success: false, error: error.message };
+			} catch (error: unknown) {
+				console.error("Error fetching score:", (error as Error).message ?? error);
+				return { success: false, error: (error as Error).message };
 			}
 		});
 
@@ -649,9 +731,9 @@ class MainApp {
 			try {
 				await databaseService.updateScore(score);
 				return { success: true };
-			} catch (error: any) {
-				console.error("Error updating score:", error.message);
-				return { success: false, error: error.message };
+			} catch (error: unknown) {
+				console.error("Error updating score:", (error as Error).message ?? error);
+				return { success: false, error: (error as Error).message };
 			}
 		});
 
@@ -662,9 +744,9 @@ class MainApp {
 				await databaseService.setScore(score);
 				console.log(`✅ Main process: setScore completed successfully`);
 				return { success: true };
-			} catch (error: any) {
-				console.error("❌ Main process error setting score:", error.message);
-				return { success: false, error: error.message };
+			} catch (error: unknown) {
+				console.error("❌ Main process error setting score:", (error as Error).message ?? error);
+				return { success: false, error: (error as Error).message };
 			}
 		});
 
@@ -741,6 +823,7 @@ class MainApp {
 			minHeight: 800,
 			frame: true,
 			titleBarStyle: "hiddenInset",
+			autoHideMenuBar: true,
 			backgroundColor: "#0a0a0a",
 			show: false,
 			parent: this.mainWindow || undefined,
@@ -750,6 +833,8 @@ class MainApp {
 				preload: path.join(__dirname, "preload.mjs"),
 			},
 		});
+
+		this.debugWindow.removeMenu();
 
 		if (VITE_DEV_SERVER_URL) {
 			this.debugWindow.loadURL(VITE_DEV_SERVER_URL + "#/debug");
