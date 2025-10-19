@@ -38,6 +38,7 @@ export class FocusAI {
 	userPatterns: UserPatterns;
 	scoreHistory: number[];
 	cumulativeScore: number;
+	baseCumulativeOffset: number;
 	maxPointsPerHour: number;
 	maxPointsPerWindow: number;
 	maxTotalPoints: number;
@@ -85,6 +86,7 @@ export class FocusAI {
 		// Score history for cumulative tracking
 		this.scoreHistory = [];
 		this.cumulativeScore = 0; // Starting score
+		this.baseCumulativeOffset = 0; // Restored score baseline
 
 		// Linear scoring engine: 1.67 points per focused minute
 		// 1000 points = 10 hours of peak performance (600 minutes × 1.67 = 1000 points)
@@ -791,8 +793,9 @@ Respond with ONLY this JSON format:
 			this.scoreHistory.shift();
 		}
 
-		// Calculate total cumulative score (sum of all points earned)
-		this.cumulativeScore = this.scoreHistory.reduce((sum, score) => sum + score, 0);
+		// Calculate total cumulative score: restored baseline + sum of new points
+		const earnedSinceRestore = this.scoreHistory.reduce((sum, score) => sum + score, 0);
+		this.cumulativeScore = this.baseCumulativeOffset + earnedSinceRestore;
 
 		// Ensure cumulative score doesn't exceed maximum
 		this.cumulativeScore = Math.min(this.maxTotalPoints, this.cumulativeScore);
@@ -827,6 +830,17 @@ Respond with ONLY this JSON format:
 		if (this.cumulativeScore < 500) return "sprout"; // 300-500 points
 		if (this.cumulativeScore < 750) return "plant"; // 500-750 points
 		return "bloom"; // 750-1000 points
+	}
+
+	/**
+	 * Restore cumulative score from database (called on app startup)
+	 */
+	restoreCumulativeScore(score: number): void {
+		this.baseCumulativeOffset = Math.max(0, score); // Ensure non-negative
+		// Recompute cumulative with current history over the new baseline
+		const earnedSinceRestore = this.scoreHistory.reduce((sum, s) => sum + s, 0);
+		this.cumulativeScore = Math.min(this.maxTotalPoints, this.baseCumulativeOffset + earnedSinceRestore);
+		console.log(`🔄 FocusAI: Cumulative score restored to ${this.cumulativeScore}`);
 	}
 }
 

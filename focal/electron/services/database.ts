@@ -1,15 +1,10 @@
 import { Collection, Db, MongoClient, ServerApiVersion } from "mongodb";
 
 // MongoDB connection configuration
-// To set up: Create a .env file in the focal directory with:
-// MONGODB_URI=mongodb+srv://test:<db_password>@focalai.t1ld1i3.mongodb.net/?retryWrites=true&w=majority&appName=FocalAI
-// MONGODB_DB_NAME=focalai
-// MONGODB_COLLECTION=user_scores
-const uri =
-	process.env.MONGODB_URI ||
-	"mongodb+srv://test:test@focalai.t1ld1i3.mongodb.net/?retryWrites=true&w=majority&appName=FocalAI";
-const dbName = process.env.MONGODB_DB_NAME || "focalai";
-const collectionName = process.env.MONGODB_COLLECTION || "user_scores";
+
+const uri = "mongodb+srv://test123:test123@focalai.t1ld1i3.mongodb.net/?retryWrites=true&w=majority&appName=FocalAI";
+const dbName = "focalai";
+const collectionName = "user_scores";
 
 interface UserScore {
 	userId: string;
@@ -24,6 +19,9 @@ export class DatabaseService {
 	private db: Db | null = null;
 	private scoresCollection: Collection<UserScore> | null = null;
 	private connected: boolean = false;
+	private connectionFailed: boolean = false;
+	private lastConnectionAttempt: number = 0;
+	private readonly CONNECTION_RETRY_INTERVAL = 60000; // 1 minute
 
 	constructor() {
 		// Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -33,7 +31,16 @@ export class DatabaseService {
 				strict: true,
 				deprecationErrors: true,
 			},
+			connectTimeoutMS: 5000, // 5 second timeout
+			serverSelectionTimeoutMS: 5000, // 5 second timeout
 		});
+	}
+
+	/**
+	 * Check if database is available
+	 */
+	isAvailable(): boolean {
+		return this.connected && !this.connectionFailed;
 	}
 
 	/**
@@ -44,19 +51,38 @@ export class DatabaseService {
 			return;
 		}
 
+		// Don't retry too frequently
+		const now = Date.now();
+		if (this.connectionFailed && now - this.lastConnectionAttempt < this.CONNECTION_RETRY_INTERVAL) {
+			throw new Error("Database unavailable. Please check your MongoDB connection and credentials in .env file.");
+		}
+
+		this.lastConnectionAttempt = now;
+
 		try {
+			console.log("🔌 Attempting to connect to MongoDB...");
 			await this.client.connect();
 			this.db = this.client.db(dbName);
+			await this.client.db(dbName).command({ ping: 1 });
 			this.scoresCollection = this.db.collection<UserScore>(collectionName);
 
 			// Create index on userId for faster queries
 			await this.scoresCollection.createIndex({ userId: 1 }, { unique: true });
 
 			this.connected = true;
+			this.connectionFailed = false;
 			console.log("✅ Successfully connected to MongoDB!");
-		} catch (error) {
-			console.error("❌ Failed to connect to MongoDB:", error);
-			throw error;
+		} catch (error: any) {
+			this.connectionFailed = true;
+			console.error("❌ Failed to connect to MongoDB:", error.message);
+
+			if (error.message.includes("TLSV1_ALERT") || error.message.includes("SSL")) {
+				console.error("🔐 SSL/TLS Error: This usually means invalid MongoDB credentials.");
+				console.error("📝 Please create a .env file in the 'focal' directory with valid MONGODB_URI");
+				console.error("📖 See MONGODB_SETUP.md for setup instructions");
+			}
+
+			throw new Error(`MongoDB connection failed: ${error.message}`);
 		}
 	}
 

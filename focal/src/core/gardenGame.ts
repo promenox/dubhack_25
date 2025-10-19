@@ -1,4 +1,4 @@
-import { setScore } from "../utils/database";
+import { fetchScore, setScore } from "../utils/database";
 import { createInitialGardenState, GardenState, Plant, PlantType } from "./index";
 
 export interface GardenStorage {
@@ -153,6 +153,28 @@ export class GardenGame {
 		const stored = await storage.load().catch(() => createInitialGardenState());
 
 		const initial = stored ?? createInitialGardenState();
+
+		// Fetch score from database and restore if higher than local storage
+		try {
+			console.log("🔄 Fetching score from database...");
+			const dbScore = await fetchScore();
+
+			if (dbScore !== null && dbScore > initial.inventory.currency) {
+				console.log(
+					`📊 Database score (${dbScore}) is higher than local storage (${initial.inventory.currency})`
+				);
+				console.log(`🔄 Restoring score from database: ${dbScore}`);
+				initial.inventory.currency = dbScore;
+			} else if (dbScore !== null) {
+				console.log(`📊 Local storage score (${initial.inventory.currency}) is current (database: ${dbScore})`);
+			} else {
+				console.log("ℹ️ No score found in database, using local storage");
+			}
+		} catch (error) {
+			console.error("❌ Failed to fetch score from database:", error);
+			console.log("ℹ️ Using local storage score:", initial.inventory.currency);
+		}
+
 		const game = new GardenGame(storage, initial);
 		game.applyOfflineGrowth();
 		await game.persistState();
@@ -243,10 +265,19 @@ export class GardenGame {
 	 */
 	private syncScoreToDatabase() {
 		const currentScore = this.state.inventory.currency;
+		console.log(`🔄 Attempting to sync score to database: ${currentScore}`);
 		// Use Promise to avoid blocking, but don't await to keep it non-blocking
-		setScore(currentScore).catch((error) => {
-			console.error("Failed to sync score to database:", error);
-		});
+		setScore(currentScore)
+			.then((success) => {
+				if (success) {
+					console.log(`✅ Score synced successfully: ${currentScore}`);
+				} else {
+					console.warn(`⚠️ Score sync returned false for: ${currentScore}`);
+				}
+			})
+			.catch((error) => {
+				console.error("❌ Failed to sync score to database:", error);
+			});
 	}
 
 	async unlockPlot(cost = DEFAULT_UNLOCK_COST) {

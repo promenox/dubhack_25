@@ -92,6 +92,7 @@ export async function updateScore(score: number): Promise<boolean> {
  */
 export async function setScore(score: number): Promise<boolean> {
 	try {
+		console.log(`📤 setScore called with score: ${score}`);
 		const ipcRenderer = getIpcRenderer();
 
 		if (!ipcRenderer) {
@@ -99,7 +100,9 @@ export async function setScore(score: number): Promise<boolean> {
 			return false;
 		}
 
+		console.log(`📡 Invoking set-score IPC with score: ${score}`);
 		const response: UpdateScoreResponse = await ipcRenderer.invoke("set-score", score);
+		console.log(`📥 Received response from set-score:`, response);
 
 		if (response.success) {
 			console.log("✅ Score set successfully");

@@ -32,6 +32,8 @@ class MainApp {
 	sessionActive: boolean;
 	sessionStartTime: number | null;
 	overlayUpdateInterval: NodeJS.Timeout | null;
+	scorePersistInterval: NodeJS.Timeout | null;
+	lastPersistedScore: number;
 
 	constructor() {
 		this.mainWindow = null;
@@ -48,6 +50,8 @@ class MainApp {
 		this.sessionActive = false;
 		this.sessionStartTime = null;
 		this.overlayUpdateInterval = null;
+		this.scorePersistInterval = null;
+		this.lastPersistedScore = 0;
 	}
 
 	createWindow() {
@@ -225,10 +229,35 @@ class MainApp {
 			}
 		};
 
+		// Send an immediate overlay update with the current restored cumulative score
+		const sendInitialOverlayUpdate = () => {
+			try {
+				this.overlayWindow?.webContents.send("focus-update", {
+					windowTitle: null,
+					url: null,
+					instantaneous: 0,
+					cumulative: this.focusAI.cumulativeScore,
+					aiInsight: "Restored score from database",
+					context: "Restored",
+					timestamp: Date.now(),
+				});
+				console.log(
+					"Initial overlay focus-update sent with restored cumulative score:",
+					this.focusAI.cumulativeScore
+				);
+			} catch (error) {
+				console.error("Error sending initial overlay update:", error);
+			}
+		};
+
 		if (this.overlayWindow.webContents.isLoading()) {
-			this.overlayWindow.webContents.once("did-finish-load", sendStart);
+			this.overlayWindow.webContents.once("did-finish-load", () => {
+				sendStart();
+				sendInitialOverlayUpdate();
+			});
 		} else {
 			sendStart();
+			sendInitialOverlayUpdate();
 		}
 
 		// Start frequent overlay updates (every 2s) to reflect window/title/URL changes
@@ -446,6 +475,31 @@ class MainApp {
 		});
 	}
 
+	private startScorePersistence() {
+		this.stopScorePersistence();
+		// Persist every 30 seconds if score changed by at least 1 point
+		this.scorePersistInterval = setInterval(async () => {
+			try {
+				const current = Math.floor(this.focusAI.cumulativeScore);
+				if (current !== this.lastPersistedScore) {
+					await databaseService.setScore(current);
+					this.lastPersistedScore = current;
+					console.log(`💾 Persisted cumulative score to DB: ${current}`);
+				}
+			} catch (error: any) {
+				// Non-fatal; keep app running even if DB write fails
+				console.warn("⚠️ Failed to persist score:", error?.message || error);
+			}
+		}, 30000);
+	}
+
+	private stopScorePersistence() {
+		if (this.scorePersistInterval) {
+			clearInterval(this.scorePersistInterval);
+			this.scorePersistInterval = null;
+		}
+	}
+
 	setupIPC() {
 		ipcMain.handle("get-current-metrics", () => {
 			return this.focusTracker.getCurrentMetrics();
@@ -487,15 +541,9 @@ class MainApp {
 			this.showOverlay(this.sessionStartTime);
 			console.log("Overlay should be created and shown");
 
-			// Save dummy score of 420 to database
-			try {
-				console.log("💾 Attempting to save dummy score of 420 to database...");
-				await databaseService.saveScore(420);
-				console.log("✅ Dummy score of 420 saved successfully!");
-			} catch (error: any) {
-				console.error("❌ Failed to save dummy score:", error.message);
-				// Don't block session start if database save fails
-			}
+			// Begin periodic DB persistence
+			this.lastPersistedScore = Math.floor(this.focusAI.cumulativeScore);
+			this.startScorePersistence();
 		});
 
 		ipcMain.on("stop-session", () => {
@@ -505,6 +553,7 @@ class MainApp {
 				this.sessionStartTime = null;
 				this.focusTracker.stop();
 				this.hideOverlay();
+				this.stopScorePersistence();
 			}
 		});
 
@@ -549,11 +598,39 @@ class MainApp {
 		});
 
 		// Handle auth token updates
-		ipcMain.on("set-auth-token", (_e, token: string) => {
+		ipcMain.on("set-auth-token", async (_e, token: string) => {
 			console.log("🔑 Main process: Auth token received from renderer");
 			console.log("🔑 Main process: Token length:", token?.length || 0);
 			databaseService.setAuthToken(token);
 			console.log("✅ Main process: Token stored in database service");
+
+			// Restore FocusAI cumulative score from database
+			try {
+				console.log("🔄 Attempting to restore FocusAI score from database...");
+				const score = await databaseService.fetchScore();
+				this.focusAI.restoreCumulativeScore(score);
+				console.log(`✅ FocusAI score restored: ${score}`);
+
+				// If overlay is already open, push an immediate update so UI reflects DB value
+				if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+					this.overlayWindow.webContents.send("focus-update", {
+						windowTitle: null,
+						url: null,
+						instantaneous: 0,
+						cumulative: this.focusAI.cumulativeScore,
+						aiInsight: "Restored score from database",
+						context: "Restored",
+						timestamp: Date.now(),
+					});
+					console.log("Overlay updated immediately after score restore");
+				}
+			} catch (error: any) {
+				console.error("❌ Failed to restore FocusAI score:", error.message);
+				console.warn("⚠️ Database unavailable. FocusAI will start with default score of 0");
+				console.warn(
+					"⚠️ To enable database sync, set up MongoDB credentials in .env file (see MONGODB_SETUP.md)"
+				);
+			}
 		});
 
 		// Handle fetching score from database
@@ -580,11 +657,13 @@ class MainApp {
 
 		// Handle setting score in database (overwrite)
 		ipcMain.handle("set-score", async (_e, score: number) => {
+			console.log(`📨 Main process received set-score IPC with score: ${score}`);
 			try {
 				await databaseService.setScore(score);
+				console.log(`✅ Main process: setScore completed successfully`);
 				return { success: true };
 			} catch (error: any) {
-				console.error("Error setting score:", error.message);
+				console.error("❌ Main process error setting score:", error.message);
 				return { success: false, error: error.message };
 			}
 		});
