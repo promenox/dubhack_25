@@ -12,6 +12,15 @@ const getStageLabel = (plant: Plant) => {
 const getProgressPercent = (plant: Plant) =>
   Math.min(100, Math.round(plant.progress * 100));
 
+const getPlotDisplayId = (plotId: string) => {
+  const numeric = plotId.match(/\d+/);
+  if (numeric) {
+    return numeric[0];
+  }
+  const cleaned = plotId.replace(/plot[-_]?/i, '');
+  return cleaned ? cleaned.toUpperCase() : plotId.toUpperCase();
+};
+
 interface GardenGridProps {
   plots: Plot[];
   onDropSeed: (plotId: string, seedType: PlantType) => void;
@@ -41,7 +50,6 @@ export const GardenGrid = ({
 
   return (
     <div className="garden-section">
-      <h2>Garden</h2>
       <div className="garden-grid" style={{ gridTemplateColumns: gridTemplate }}>
         {plots.map((plot) => {
           const plant = plot.plant;
@@ -73,7 +81,7 @@ export const GardenGrid = ({
               onDragOver={handleDragOver}
             >
               <header className="plot-card__header">
-                <span className="plot-card__title">{plot.id.toUpperCase()}</span>
+                <span className="plot-card__title">{getPlotDisplayId(plot.id)}</span>
                 {plant && <span className="plot-card__stage">{stageLabel}</span>}
               </header>
 
@@ -106,9 +114,7 @@ export const GardenGrid = ({
                       Harvest
                     </button>
                   </>
-                ) : (
-                  <span className="plot-card__hint">Available</span>
-                )}
+                ) : null}
               </footer>
             </div>
           );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GardenGrid } from '@ui/components/GardenGrid';
 import { SeedShop } from '@ui/components/SeedShop';
 import { InventoryToolbar } from '@ui/components/InventoryToolbar';
@@ -9,8 +9,10 @@ const App = () => {
   const { state, isReady, error: gameError, dispatch, seeds, multiplier } =
     useGardenGame();
   const [isSeedShopOpen, setIsSeedShopOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
   const [shakePlotId, setShakePlotId] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  const toastDismissRef = useRef<number | null>(null);
 
   const version = useMemo(() => {
     try {
@@ -22,12 +24,56 @@ const App = () => {
 
   // Must be called before any conditional returns (Rules of Hooks)
   useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+      if (toastDismissRef.current) {
+        window.clearTimeout(toastDismissRef.current);
+        toastDismissRef.current = null;
+      }
+    };
+  }, []);
+
+  const hideToast = useCallback(() => {
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    setToast((current) => {
+      if (!current || !current.visible) {
+        return current;
+      }
+      return { ...current, visible: false };
+    });
+  }, []);
+
+  const showToast = useCallback(
+    (message: string) => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+      if (toastDismissRef.current) {
+        window.clearTimeout(toastDismissRef.current);
+        toastDismissRef.current = null;
+      }
+
+      setToast({ message, visible: true });
+      toastTimerRef.current = window.setTimeout(() => {
+        hideToast();
+      }, 3000);
+    },
+    [hideToast]
+  );
+
+  useEffect(() => {
     if (!gameError) {
       return;
     }
 
-    setToastMessage(gameError.message);
-    const toastTimer = window.setTimeout(() => setToastMessage(null), 3000);
+    showToast(gameError.message);
 
     let shakeTimer: number | undefined;
     if (gameError.plotId && /occupied/i.test(gameError.message)) {
@@ -36,12 +82,33 @@ const App = () => {
     }
 
     return () => {
-      window.clearTimeout(toastTimer);
       if (shakeTimer) {
         window.clearTimeout(shakeTimer);
       }
     };
-  }, [gameError]);
+  }, [gameError, showToast]);
+
+  useEffect(() => {
+    if (!toast || toast.visible) {
+      return;
+    }
+
+    toastDismissRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastDismissRef.current = null;
+    }, 220);
+
+    return () => {
+      if (toastDismissRef.current) {
+        window.clearTimeout(toastDismissRef.current);
+        toastDismissRef.current = null;
+      }
+    };
+  }, [toast]);
+
+  const dismissToast = useCallback(() => {
+    hideToast();
+  }, [hideToast]);
 
   // Now we can conditionally return
   if (!isReady || !state) {
@@ -58,13 +125,25 @@ const App = () => {
   return (
     <div className="app-shell">
       <header className="app__titlebar">
-        <span className="app__titlebar-tagline">Plant tasks, harvest motivation.</span>
+        <span className="app__titlebar-tagline">Grow Your Productivity Garden</span>
         <span className="app__titlebar-version">Electron {version}</span>
       </header>
 
-      {toastMessage && (
-        <div className="app__toast" role="status" aria-live="assertive">
-          {toastMessage}
+      {toast && (
+        <div
+          className={`app__toast ${toast.visible ? 'app__toast--visible' : 'app__toast--hiding'}`}
+          role="button"
+          aria-live="assertive"
+          tabIndex={0}
+          onClick={dismissToast}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              dismissToast();
+            }
+          }}
+        >
+          {toast.message}
         </div>
       )}
 
