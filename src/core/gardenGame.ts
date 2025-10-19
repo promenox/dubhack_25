@@ -71,6 +71,15 @@ export const SEED_LIBRARY: Record<LibraryPlantType, SeedDefinition> = {
     harvestReward: 300,
     seedCost: 150,
     icon: 'beanstalk.svg'
+  },
+  sixtyseven: {
+    type: 'sixtyseven',
+    displayName: 'Six Sevenium',
+    description: 'A curious numerical bloom that adds quirky prosperity.',
+    growthDuration: 420,
+    harvestReward: 67,
+    seedCost: 42,
+    icon: 'sixtyseven.svg'
   }
 };
 
@@ -221,11 +230,13 @@ export class GardenGame {
       return;
     }
 
+    let hasGrowingPlants = false;
     this.state.plots.forEach((plot) => {
       if (!plot.plant) return;
       const plant = plot.plant;
       if (plant.progress >= 1) return;
 
+      hasGrowingPlants = true;
       const effectiveDuration = Math.max(
         1,
         plant.growthDuration / this.growthMultiplier
@@ -233,6 +244,11 @@ export class GardenGame {
       const increment = delta / effectiveDuration;
       plant.progress = Math.min(1, plant.progress + increment);
     });
+
+    // Debug log when plants are growing
+    if (hasGrowingPlants && Math.random() < 0.1) { // Log 10% of the time to avoid spam
+      console.log(`[Tick] Multiplier: ${this.growthMultiplier.toFixed(1)}x`);
+    }
 
     this.state.lastUpdatedAt = Date.now();
 

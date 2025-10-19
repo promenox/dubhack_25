@@ -14,6 +14,17 @@ const App = () => {
   const toastTimerRef = useRef<number | null>(null);
   const toastDismissRef = useRef<number | null>(null);
 
+  // Expose test helpers to window for debugging
+  useEffect(() => {
+    if (isReady) {
+      (window as any).__testMultiplier = (value: number) => {
+        console.log(`[Debug] Setting multiplier to ${value}`);
+        dispatch({ type: 'setMultiplier', value });
+      };
+      console.log('[Debug] Test helper available: __testMultiplier(n)');
+    }
+  }, [isReady, dispatch]);
+
   const version = useMemo(() => {
     try {
       return window.gardenApi.getVersion();

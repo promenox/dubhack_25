@@ -11,7 +11,8 @@
     "build": "npm run build:main && npm run build:renderer",
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "vite build --config vite.config.ts",
-    "start": "cross-env NODE_ENV=production electron ."
+    "start": "cross-env NODE_ENV=production electron .",
+    "test:tracker": "ts-node --project tsconfig.test.json src/tracker/randomMultiplierTest.ts"
   },
   "keywords": [],
   "author": "",

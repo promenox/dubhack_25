@@ -6,6 +6,7 @@ import {
   type PlantType
 } from '@core/index';
 import { createLocalStorageAdapter } from '@storage/localStorageAdapter';
+import { getProductivityMultiplier, setProductivityMultiplier } from '@tracker/index';
 
 type GameAction =
   | { type: 'plant'; plotId: string; seedType: PlantType }
@@ -25,6 +26,7 @@ export const useGardenGame = () => {
   const [state, setState] = useState<GardenState | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<GameError | null>(null);
+  const [multiplier, setMultiplier] = useState(1);
 
   useEffect(() => {
     let isMounted = true;
@@ -57,6 +59,19 @@ export const useGardenGame = () => {
   useEffect(() => {
     if (!isReady || !gameRef.current) return;
     const interval = window.setInterval(() => {
+      // Pull latest tracker multiplier and apply if changed
+      try {
+        const trackerMult = getProductivityMultiplier();
+        const currentMult = gameRef.current!.getMultiplier();
+        if (trackerMult !== currentMult) {
+          console.log(`[Game Loop] Updating multiplier from ${currentMult} to ${trackerMult}`);
+          gameRef.current!.setGrowthMultiplier(trackerMult);
+          setMultiplier(trackerMult);
+        }
+      } catch (err) {
+        console.error('[Game Loop] Error reading tracker multiplier:', err);
+      }
+
       gameRef.current
         ?.tick(1)
         .catch((err) => console.error('Tick failed', err));
@@ -87,6 +102,10 @@ export const useGardenGame = () => {
           break;
         case 'setMultiplier':
           gameRef.current.setGrowthMultiplier(action.value);
+          setMultiplier(action.value);
+          // IMPORTANT: Also update the tracker module so game loop doesn't override it
+          setProductivityMultiplier(action.value);
+          console.log(`[Dispatch] Set multiplier to ${action.value} (synced to tracker)`);
           break;
         default:
           break;
@@ -108,6 +127,6 @@ export const useGardenGame = () => {
     error,
     dispatch,
     seeds: SEED_LIBRARY,
-    multiplier: gameRef.current?.getMultiplier() ?? 1
+    multiplier
   };
 };
