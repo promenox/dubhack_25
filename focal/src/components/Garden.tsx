@@ -171,6 +171,58 @@ const Garden = () => {
 		});
 	}, [state, overlayPlotId]);
 
+	// Listen to focus updates and adjust growth multiplier based on productivity score
+	useEffect(() => {
+		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
+		if (!ipcRenderer) return;
+
+		const handleFocusUpdate = (_event: any, data: any) => {
+			if (data && typeof data.cumulative === "number") {
+				// Convert cumulative score (0-1000) to growth multiplier (0.5x-3x)
+				// Formula: multiplier = 0.5 + (score / 1000) * 2.5
+				// 0 score = 0.5x, 200 score = 1.0x, 500 score = 1.75x, 1000 score = 3.0x
+				const score = Math.max(0, Math.min(1000, data.cumulative)); // Clamp between 0-1000
+				const newMultiplier = 0.5 + (score / 1000) * 2.5;
+
+				// Only update if multiplier has changed significantly (avoid unnecessary updates)
+				const currentMult = multiplier;
+				if (Math.abs(newMultiplier - currentMult) > 0.01) {
+					console.log(
+						`[Garden] Updating growth multiplier: ${currentMult.toFixed(2)}x → ${newMultiplier.toFixed(
+							2
+						)}x (score: ${score.toFixed(1)})`
+					);
+					dispatch({ type: "setMultiplier", value: newMultiplier });
+				}
+			}
+		};
+
+		// Fetch initial focus score on mount
+		ipcRenderer
+			.invoke("get-focus-score")
+			.then((focusScore: any) => {
+				if (focusScore && typeof focusScore.cumulative === "number") {
+					const score = Math.max(0, Math.min(1000, focusScore.cumulative));
+					const initialMultiplier = 0.5 + (score / 1000) * 2.5;
+					console.log(
+						`[Garden] Setting initial growth multiplier: ${initialMultiplier.toFixed(
+							2
+						)}x (score: ${score.toFixed(1)})`
+					);
+					dispatch({ type: "setMultiplier", value: initialMultiplier });
+				}
+			})
+			.catch((error) => {
+				console.log("[Garden] Could not fetch initial focus score:", error);
+			});
+
+		ipcRenderer.on("focus-update", handleFocusUpdate);
+
+		return () => {
+			ipcRenderer.removeListener("focus-update", handleFocusUpdate);
+		};
+	}, [dispatch, multiplier]);
+
 	// Now we can conditionally return
 	if (!isReady || !state) {
 		return (

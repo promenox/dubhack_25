@@ -1,5 +1,6 @@
 import { useState } from "react";
 import authService from "../services/auth";
+import { setAuthToken } from "../utils/database";
 import "./Auth.css";
 
 interface AuthProps {
@@ -24,7 +25,20 @@ const Auth = ({ onAuthSuccess }: AuthProps) => {
 		setLoading(true);
 
 		try {
-			await authService.signIn(username, password);
+			const response = await authService.signIn(username, password);
+			console.log("✅ Sign in successful");
+			console.log("📦 Response structure:", Object.keys(response));
+
+			// Send auth token to main process for database operations
+			if (response.AuthenticationResult?.IdToken) {
+				console.log("🔑 Found IdToken in response, sending to main process...");
+				setAuthToken(response.AuthenticationResult.IdToken);
+				console.log("🔑 Auth token sent to main process for database operations");
+			} else {
+				console.warn("⚠️ No IdToken found in response!");
+				console.warn("⚠️ Response:", response);
+			}
+
 			onAuthSuccess();
 		} catch (err: any) {
 			const errorCode = err.__type || err.code;

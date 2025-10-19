@@ -46,4 +46,14 @@ export const createInitialGardenState = (): GardenState => ({
 	lastUpdatedAt: Date.now(),
 });
 
-export { GardenGame, SEED_LIBRARY, type GardenStorage, type SeedDefinition } from "./gardenGame";
+export {
+	GardenGame,
+	SEED_LIBRARY,
+	getGrowthConfig,
+	getSeedLibrary,
+	resetGrowthConfig,
+	setGrowthConfig,
+	type GardenStorage,
+	type GrowthConfig,
+	type SeedDefinition,
+} from "./gardenGame";

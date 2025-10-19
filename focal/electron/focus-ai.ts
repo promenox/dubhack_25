@@ -1,12 +1,10 @@
 import type { WindowSummary } from "./focus-tracker";
-import { ContextAnalyzer } from "./services/contextAnalyzer";
-import type { ProductivityAnalysis, ScreenContext } from "./services/types";
 
 interface BaseWeights {
-	keystrokeActivity: number;
-	focusConsistency: number;
-	activeTimeRatio: number;
-	switchingPattern: number;
+	duration: number;
+	switching: number;
+	appContext: number;
+	titleContext: number;
 }
 
 interface UserPatterns {
@@ -18,6 +16,7 @@ interface UserPatterns {
 }
 
 interface AIContext {
+	category: string;
 	multiplier: number;
 	insight: string;
 	context: string;
@@ -49,45 +48,39 @@ export class FocusAI {
 		distracted: number;
 		idle: number;
 	};
-	contextAnalyzer: ContextAnalyzer | null;
+	aiEnabled: boolean;
+	quotaExceeded: boolean;
+	lastQuotaCheck: number;
 
-	constructor(bedrockApiKey?: string) {
-		console.log("🎯 FocusAI: Initializing with LINEAR SCORING ENGINE");
+	constructor() {
+		console.log("🎯 FocusAI: Initializing with OLLAMA AI INTEGRATION");
 
-		// Initialize context analyzer if API key is provided
-		if (bedrockApiKey) {
-			try {
-				this.contextAnalyzer = new ContextAnalyzer({
-					apiKey: bedrockApiKey,
-					region: "us-west-2",
-					model: "anthropic.claude-3-sonnet-20240229-v1:0",
-				});
-				console.log("🧠 Context Analyzer enabled with AWS Bedrock");
-			} catch (error: any) {
-				console.warn("⚠️ Context Analyzer initialization failed:", error.message);
-				this.contextAnalyzer = null;
-			}
-		} else {
-			console.log("ℹ️ Context Analyzer disabled (no API key provided)");
-			this.contextAnalyzer = null;
-		}
+		// Initialize basic settings
+		this.aiEnabled = true;
+		this.quotaExceeded = false;
+		this.lastQuotaCheck = 0;
 
-		// Scoring weights for base calculation
-		this.baseWeights = {
-			keystrokeActivity: 0.25,
-			focusConsistency: 0.3,
-			activeTimeRatio: 0.25,
-			switchingPattern: 0.2,
-		};
+		// Removed keystroke and mouse tracking - using simplified scoring only
 
-		// User learning data
+		// User learning data (simplified)
 		this.userPatterns = {
 			productiveApps: new Set(["Visual Studio Code", "Terminal", "Chrome", "Slack", "Notion", "Cursor"]),
 			distractingApps: new Set(["Twitter", "Instagram", "Facebook", "TikTok"]),
 			learningApps: new Set(["YouTube", "Coursera", "Khan Academy"]),
-			preferredSwitchingRate: 2.5, // switches per minute
-			averageSessionLength: 25, // minutes
+			preferredSwitchingRate: 0.5, // ideal switches per minute
+			averageSessionLength: 25, // average session length in minutes
 		};
+
+		// Initialize missing properties
+		this.baseWeights = {
+			duration: 0.1,
+			switching: 0.1,
+			appContext: 0.45,
+			titleContext: 0.35,
+		};
+		// At peak productivity (100 base score * 1.8 max AI multiplier), users earn 100 points/hour
+		this.maxPointsPerHour = 100;
+		this.maxPointsPerWindow = 25;
 
 		// Score history for cumulative tracking
 		this.scoreHistory = [];
@@ -107,185 +100,516 @@ export class FocusAI {
 		};
 	}
 
-	async calculateHybridScore(activityWindow: WindowSummary): Promise<FocusScore> {
+	// Initialize Ollama connection
+	async initializeOllama() {
 		try {
-			console.log("🎯 FocusAI: Using LINEAR SCORING ENGINE");
-
-			// Step 1: Calculate base productivity score
-			const baseScore = this.calculateBaseScore(activityWindow);
-			console.log("📊 Base score calculated:", baseScore);
-
-			// Step 2: Get AI-powered context analysis or fallback to rule-based
-			const aiContext = await this.getAIContext(activityWindow);
-			console.log("🧠 Context analysis:", aiContext);
-
-			// Step 3: Apply multiplier to base score
-			const finalScore = this.applyAIMultiplier(baseScore, aiContext);
-			console.log("✨ Final score:", finalScore);
-
-			// Step 4: Update cumulative metrics
-			this.updateCumulativeScore(finalScore);
-
-			const result: FocusScore = {
-				instantaneous: Math.round(finalScore * 100) / 100, // Round to 2 decimal places
-				cumulative: Math.round(this.cumulativeScore * 100) / 100,
-				baseScore: Math.round(baseScore * 100) / 100,
-				aiMultiplier: aiContext.multiplier,
-				aiInsight: aiContext.insight,
-				context: aiContext.context,
-				timestamp: Date.now(),
-			};
-
-			console.log("📈 FocusAI result:", result);
-			return result;
+			const response = await fetch("http://localhost:11434/api/tags");
+			if (response.ok) {
+				console.log("✅ Ollama connected successfully");
+			} else {
+				console.log("❌ Ollama not running - falling back to rule-based classification");
+				this.aiEnabled = false;
+			}
 		} catch (error) {
-			console.error("Error calculating hybrid score:", error);
-			return this.getFallbackScore(activityWindow);
+			console.log("❌ Ollama connection failed - falling back to rule-based classification");
+			this.aiEnabled = false;
 		}
 	}
 
-	async getAIContext(activityWindow: WindowSummary): Promise<AIContext> {
-		// Try to use AI-powered context analysis if available
-		if (this.contextAnalyzer && this.contextAnalyzer.isReady()) {
-			try {
-				// Convert activity window to screen context format
-				const currentScreen: ScreenContext = {
-					activeApp: activityWindow.activeApp,
-					windowTitle: activityWindow.windowTitle,
-					url: activityWindow.url,
-					timestamp: activityWindow.timestamp,
-				};
+	// AI context classification using Ollama
+	async getAIContextCategory(activityWindow: WindowSummary): Promise<AIContext> {
+		if (!this.aiEnabled) {
+			return this.getRuleBasedClassification(activityWindow);
+		}
 
-				// Get recent screens from context
-				const recentScreens: ScreenContext[] = activityWindow.context.recentApps.map((app) => ({
-					activeApp: app.app,
-					windowTitle: app.title,
-					url: app.url,
-					timestamp: app.timestamp,
-				}));
+		try {
+			const prompt = `Analyze this activity and classify its productivity level:
 
-				// Call the context analyzer
-				const analysis: ProductivityAnalysis = await this.contextAnalyzer.analyzeContext(
-					currentScreen,
-					recentScreens
-				);
+App: ${activityWindow.activeApp || "Unknown"}
+Title: ${activityWindow.windowTitle || "Unknown"}
+URL: ${activityWindow.url || "None"}
+Duration: ${(activityWindow.duration / 60000).toFixed(1)} minutes
 
-				// Convert ProductivityAnalysis to AIContext
+Classify as one of these categories:
+- "deep_work": Coding, writing, serious work (score 90-100)
+- "learning": Educational content, tutorials, courses (score 70-85)
+- "maintenance": General browsing, email, admin tasks (score 40-60)
+- "distracted": Entertainment, social media, games (score 0-30)
+- "idle": No activity or very low engagement (score 0-20)
+
+Respond with ONLY this JSON format:
+{"category": "category_name", "confidence": 0.85, "reasoning": "brief explanation"}`;
+
+			const response = await fetch("http://localhost:11434/api/generate", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					model: "gemma3:4b",
+					prompt: prompt,
+					stream: false,
+					options: {
+						temperature: 0.1,
+						top_p: 0.9,
+						max_tokens: 200,
+					},
+				}),
+			});
+
+			if (!response.ok) {
+				throw new Error(`Ollama API error: ${response.status}`);
+			}
+
+			const data = await response.json();
+			const content = data.response || data.content || "";
+
+			// Extract JSON from response
+			const jsonMatch = content.match(/\{[\s\S]*\}/);
+			if (jsonMatch) {
+				const result = JSON.parse(jsonMatch[0]);
 				return {
-					multiplier: analysis.weightMultiplier,
-					insight: analysis.insight,
-					context: `${analysis.contextRelation} - ${analysis.productivityLevel}`,
-					confidence: 0.9, // High confidence when using AI
+					category: result.category || "maintenance",
+					confidence: result.confidence || 0.7,
+					insight: result.reasoning || "AI analysis",
+					context: result.category || "maintenance",
+					multiplier: 1.0,
 				};
-			} catch (error: any) {
-				console.warn("⚠️ AI context analysis failed, falling back to rules:", error.message);
-				return this.getRuleBasedContext(activityWindow);
+			} else {
+				// Fallback parsing
+				const category = content.toLowerCase().includes("deep_work")
+					? "deep_work"
+					: content.toLowerCase().includes("learning")
+					? "learning"
+					: content.toLowerCase().includes("distracted")
+					? "distracted"
+					: content.toLowerCase().includes("idle")
+					? "idle"
+					: "maintenance";
+
+				return {
+					category,
+					confidence: 0.6,
+					insight: "AI analysis (parsed)",
+					context: category,
+					multiplier: 1.0,
+				};
+			}
+		} catch (error) {
+			console.log(`❌ Ollama AI analysis failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+			return this.getRuleBasedClassification(activityWindow);
+		}
+	}
+
+	async calculateHybridScore(activityWindow: WindowSummary): Promise<FocusScore> {
+		console.log("🎯 calculateHybridScore called with:", activityWindow);
+
+		// Get AI classification
+		const aiContext = await this.getAIContextCategory(activityWindow);
+		console.log(`🤖 AI Classification: ${aiContext.category} (${(aiContext.confidence * 100).toFixed(0)}%)`);
+
+		// Calculate weighted score using new system
+		const windowDurationMinutes = activityWindow.duration / 60000;
+		const switchRate = activityWindow.switchRate || 0;
+
+		// 1. Duration Score (10% weight) - linear score based on actual duration
+		const durationScore = Math.min(windowDurationMinutes * 20, 100);
+
+		// 2. Switching Score (10% weight) - penalty above 0.5 switches/min
+		const switchingScore = Math.max(0, 100 - 40 * (switchRate - 0.5));
+
+		// 3. App Context Score (45% weight) - MAJOR factor
+		const appContextScore = this.calculateAppContextScore(activityWindow);
+
+		// 4. Title/URL Context Score (35% weight) - MAJOR factor
+		const titleContextScore = this.calculateTitleContextScore(activityWindow);
+
+		// AI Multiplier based on classification
+		const aiMultipliers: Record<string, number> = {
+			deep_work: 1.8,
+			learning: 1.5,
+			maintenance: 1.0,
+			distracted: 0.3,
+			idle: 0.0,
+		};
+
+		const aiMultiplier = aiMultipliers[aiContext.category] || 1.0;
+
+		// Weighted total score (0-100 scale)
+		const totalScore =
+			0.1 * durationScore + 0.1 * switchingScore + 0.45 * appContextScore + 0.35 * titleContextScore;
+
+		// Apply AI multiplier
+		const aiAdjustedScore = totalScore * aiMultiplier;
+
+		// Scale so that 1 hour of maximum productivity = 100 points
+		// Theoretical max: 100 (base) * 1.8 (max AI multiplier) = 180
+		// We want 180 to map to 100 points/hour, so divide by 1.8
+		const hoursActive = windowDurationMinutes / 60;
+		const scaledScore = (aiAdjustedScore / 1.8) * hoursActive;
+
+		console.log(`🔍 Weighted Score Calculation:`);
+		console.log(`  - Duration: ${windowDurationMinutes.toFixed(2)}min → ${durationScore.toFixed(1)} pts (10%)`);
+		console.log(`  - Switching: ${switchRate.toFixed(2)}/min → ${switchingScore.toFixed(1)} pts (10%)`);
+		console.log(`  - App Context: ${appContextScore.toFixed(1)} pts (45%)`);
+		console.log(`  - Title Context: ${titleContextScore.toFixed(1)} pts (35%)`);
+		console.log(`  - Total Score: ${totalScore.toFixed(1)}/100`);
+		console.log(`  - AI Multiplier: ${aiMultiplier.toFixed(1)}x (${aiContext.category})`);
+		console.log(`  - AI Adjusted: ${aiAdjustedScore.toFixed(1)}`);
+		console.log(`  - Scaled Score: ${scaledScore.toFixed(2)} pts (target: 100 pts/hr at peak)`);
+
+		this.updateCumulativeScore(scaledScore);
+
+		return {
+			instantaneous: +scaledScore.toFixed(2),
+			cumulative: +this.cumulativeScore.toFixed(2),
+			baseScore: +totalScore.toFixed(2),
+			aiMultiplier: +aiMultiplier.toFixed(2),
+			aiInsight: aiContext.insight,
+			context: aiContext.category,
+			timestamp: Date.now(),
+		};
+	}
+
+	// AI methods removed - using rule-based classification only
+
+	countConsecutiveFocusMinutes(): number {
+		// Simple implementation - return 0 for now
+		return 0;
+	}
+
+	getRecentAverage(): number {
+		// Simple implementation - return 0 for now
+		return 0;
+	}
+
+	getRuleBasedClassification(activityWindow: WindowSummary): AIContext {
+		const app = activityWindow.activeApp || "";
+		const title = activityWindow.windowTitle || "";
+		const url = activityWindow.url || "";
+
+		// Simple rule-based classification
+		if (!app || app === "null") {
+			return {
+				category: "idle",
+				confidence: 0.8,
+				insight: "No active application detected",
+				context: "idle",
+				multiplier: 0.0,
+			};
+		}
+
+		const appLower = app.toLowerCase();
+		const titleLower = title.toLowerCase();
+		const urlLower = url.toLowerCase();
+
+		// Deep work applications
+		if (
+			appLower.includes("cursor") ||
+			appLower.includes("vscode") ||
+			appLower.includes("code") ||
+			appLower.includes("sublime") ||
+			appLower.includes("atom") ||
+			appLower.includes("vim") ||
+			appLower.includes("emacs")
+		) {
+			return {
+				category: "deep_work",
+				confidence: 0.9,
+				insight: "Using productive development tool",
+				context: "deep_work",
+				multiplier: 1.8,
+			};
+		}
+
+		// Learning platforms
+		if (
+			urlLower.includes("khan") ||
+			urlLower.includes("coursera") ||
+			urlLower.includes("edx") ||
+			urlLower.includes("udemy") ||
+			(urlLower.includes("youtube") &&
+				(titleLower.includes("tutorial") || titleLower.includes("course") || titleLower.includes("learn")))
+		) {
+			return {
+				category: "learning",
+				confidence: 0.8,
+				insight: "Educational content detected",
+				context: "learning",
+				multiplier: 1.5,
+			};
+		}
+
+		// Research tools
+		if (
+			appLower.includes("chrome") ||
+			appLower.includes("firefox") ||
+			appLower.includes("safari") ||
+			appLower.includes("edge")
+		) {
+			if (
+				urlLower.includes("wikipedia") ||
+				urlLower.includes("stackoverflow") ||
+				urlLower.includes("github") ||
+				urlLower.includes("docs")
+			) {
+				return {
+					category: "learning",
+					confidence: 0.7,
+					insight: "Research and documentation",
+					context: "learning",
+					multiplier: 1.5,
+				};
+			}
+			return {
+				category: "maintenance",
+				confidence: 0.6,
+				insight: "General web browsing",
+				context: "maintenance",
+				multiplier: 1.0,
+			};
+		}
+
+		// Distracting applications
+		if (
+			appLower.includes("instagram") ||
+			appLower.includes("tiktok") ||
+			appLower.includes("facebook") ||
+			appLower.includes("twitter") ||
+			appLower.includes("reddit") ||
+			appLower.includes("discord")
+		) {
+			return {
+				category: "distracted",
+				confidence: 0.9,
+				insight: "Social media or entertainment",
+				context: "distracted",
+				multiplier: 0.3,
+			};
+		}
+
+		// Default to maintenance
+		return {
+			category: "maintenance",
+			confidence: 0.6,
+			insight: "General application usage",
+			context: "maintenance",
+			multiplier: 1.0,
+		};
+	}
+
+	// calculateBaseScore method removed - using new weighted system in calculateHybridScore
+
+	calculateAppContextScore(activityWindow: WindowSummary): number {
+		const app = activityWindow.activeApp?.toLowerCase() || "";
+		const url = typeof activityWindow.url === "string" ? activityWindow.url.toLowerCase() : "";
+
+		// Deep work applications - MAXIMUM productivity
+		if (
+			app.includes("cursor") ||
+			app.includes("vscode") ||
+			app.includes("code") ||
+			app.includes("sublime") ||
+			app.includes("atom") ||
+			app.includes("vim") ||
+			app.includes("emacs") ||
+			app.includes("terminal")
+		) {
+			return 100; // Maximum productivity
+		}
+
+		// Learning platforms - HIGH productivity
+		if (
+			url.includes("khan") ||
+			url.includes("coursera") ||
+			url.includes("edx") ||
+			url.includes("udemy") ||
+			url.includes("stackoverflow") ||
+			url.includes("github") ||
+			url.includes("docs") ||
+			url.includes("wikipedia")
+		) {
+			return 90; // High productivity
+		}
+
+		// YouTube - conditionally productive
+		if (url.includes("youtube")) {
+			const title = activityWindow.windowTitle?.toLowerCase() || "";
+			// Educational keywords
+			if (
+				title.includes("tutorial") ||
+				title.includes("course") ||
+				title.includes("learn") ||
+				title.includes("how to") ||
+				title.includes("lecture") ||
+				title.includes("education") ||
+				title.includes("math") ||
+				title.includes("science") ||
+				title.includes("programming") ||
+				title.includes("coding")
+			) {
+				return 80; // Moderately productive
+			}
+			return 5; // Very low productivity for entertainment
+		}
+
+		// General browsers - NEUTRAL
+		if (app.includes("chrome") || app.includes("firefox") || app.includes("safari") || app.includes("edge")) {
+			return 50; // Neutral productivity
+		}
+
+		// Distracting applications - MINIMUM productivity
+		if (
+			app.includes("instagram") ||
+			app.includes("tiktok") ||
+			app.includes("facebook") ||
+			app.includes("twitter") ||
+			app.includes("reddit") ||
+			app.includes("discord") ||
+			app.includes("netflix") ||
+			app.includes("spotify")
+		) {
+			return 0; // No productivity
+		}
+
+		// Default for unknown apps
+		return 30;
+	}
+
+	calculateTitleContextScore(activityWindow: WindowSummary): number {
+		const title = activityWindow.windowTitle?.toLowerCase() || "";
+		const url = typeof activityWindow.url === "string" ? activityWindow.url.toLowerCase() : "";
+
+		let score = 30; // Lower base score
+
+		// Educational/academic keywords - BIG BOOST
+		const educationalKeywords = [
+			"tutorial",
+			"course",
+			"learn",
+			"study",
+			"education",
+			"academic",
+			"math",
+			"calculus",
+			"algebra",
+			"science",
+			"physics",
+			"chemistry",
+			"programming",
+			"coding",
+			"development",
+			"algorithm",
+			"data",
+			"research",
+			"analysis",
+			"documentation",
+			"guide",
+			"manual",
+		];
+
+		// Entertainment keywords - BIG PENALTY
+		const entertainmentKeywords = [
+			"funny",
+			"comedy",
+			"entertainment",
+			"music",
+			"movie",
+			"game",
+			"social",
+			"chat",
+			"messaging",
+			"news",
+			"gossip",
+			"celebrity",
+			"kids",
+			"strongest",
+			"dollar",
+			"food",
+			"week",
+			"ate",
+			"explosion",
+		];
+
+		// Check for educational content - BIG REWARD
+		for (const keyword of educationalKeywords) {
+			if (title.includes(keyword) || url.includes(keyword)) {
+				score += 50; // Much bigger boost
+				break;
 			}
 		}
 
-		// Fallback to rule-based context
-		return this.getRuleBasedContext(activityWindow);
-	}
-
-	calculateBaseScore(activityWindow: WindowSummary): number {
-		// Only calculate points for completed activity windows (3-5 minute batches)
-		// This prevents accumulating points every few seconds
-		// Note: WindowSummary doesn't have isComplete, so we check duration instead
-		if (activityWindow.duration < 60000) {
-			return 0; // No points for windows less than 1 minute
+		// Check for entertainment content - BIG PENALTY
+		for (const keyword of entertainmentKeywords) {
+			if (title.includes(keyword) || url.includes(keyword)) {
+				score -= 40; // Much bigger penalty
+				break;
+			}
 		}
 
-		// Linear scoring engine: 1.67 points per focused minute
-		const windowDurationMinutes = activityWindow.duration / 60000; // Convert ms to minutes
-
-		// Apply focus ratio (how much time was actually focused vs idle)
-		const focusRatio = activityWindow.focusRatio || 0;
-		const focusedMinutes = windowDurationMinutes * focusRatio;
-
-		// Base score is points for focused time
-		const baseScore = this.baseRatePerMinute * focusedMinutes;
-
-		// Adjust based on engagement level (keystrokes and mouse activity)
-		const engagementLevel = this.calculateEngagementLevel(activityWindow);
-		const engagementMultiplier = Math.max(0.3, Math.min(1.5, engagementLevel));
-
-		// Final base score with engagement adjustment
-		const adjustedBaseScore = baseScore * engagementMultiplier;
-
-		return Math.max(0, adjustedBaseScore);
+		// Cap score between 0-100
+		return Math.max(0, Math.min(100, score));
 	}
 
-	calculateEngagementLevel(activityWindow: WindowSummary): number {
-		// Calculate engagement level based on keystrokes and mouse movements
-		const keystrokeRate = activityWindow.keystrokeRate || 0;
-		const mouseRate = activityWindow.mouseMovementRate || 0;
+	generateContextualInsight(activityWindow: WindowSummary, totalScore: number): string {
+		const app = activityWindow.activeApp || "Unknown App";
+		const title = activityWindow.windowTitle || "Unknown Window";
+		const duration = (activityWindow.duration / 60000).toFixed(1);
+		const switchRate = activityWindow.switchRate?.toFixed(2) || "0";
 
-		// Optimal engagement: 20-40 keystrokes per minute, moderate mouse movement
-		const keystrokeEngagement = Math.min(1.0, keystrokeRate / 30); // Normalize to 30 keystrokes/min
-		const mouseEngagement = Math.min(1.0, mouseRate / 100); // Normalize to 100 mouse movements/min
+		// Determine productivity level
+		let productivityLevel = "Low";
+		if (totalScore >= 80) productivityLevel = "Excellent";
+		else if (totalScore >= 60) productivityLevel = "Good";
+		else if (totalScore >= 40) productivityLevel = "Moderate";
+		else if (totalScore >= 20) productivityLevel = "Low";
+		else productivityLevel = "Very Low";
 
-		// Combine with weights: keystrokes are more important for productivity
-		const engagementLevel = keystrokeEngagement * 0.7 + mouseEngagement * 0.3;
-
-		return Math.max(0.3, engagementLevel); // Minimum 30% engagement even when idle
-	}
-
-	analyzeKeystrokeActivity(activityWindow: WindowSummary): number {
-		const keystrokeRate = activityWindow.keystrokeRate || 0;
-
-		// Optimal keystroke rate depends on app type
-		if (keystrokeRate < 5) return 20; // Very low activity
-		if (keystrokeRate <= 30) return 80; // Good typing activity
-		if (keystrokeRate <= 60) return 70; // High activity
-		if (keystrokeRate <= 100) return 50; // Very high activity
-		return 30; // Excessive activity
-	}
-
-	analyzeFocusConsistency(activityWindow: WindowSummary): number {
-		const pattern = activityWindow.context?.switchingPattern || "stable";
-
-		switch (pattern) {
-			case "focused":
-				return 90;
-			case "stable":
-				return 75;
-			case "multitasking":
-				return 60;
-			case "distracted":
-				return 25;
-			default:
-				return 50;
+		// Generate contextual insight
+		if (app.toLowerCase().includes("cursor") || app.toLowerCase().includes("code")) {
+			return `Spent ${duration}min coding in ${app}. ${productivityLevel} focus (${totalScore.toFixed(
+				0
+			)}/100). Switch rate: ${switchRate}/min.`;
 		}
-	}
 
-	analyzeActiveTime(activityWindow: WindowSummary): number {
-		const focusRatio = activityWindow.focusRatio || 0;
+		if (typeof activityWindow.url === "string" && activityWindow.url.includes("youtube")) {
+			const isEducational =
+				title.toLowerCase().includes("tutorial") ||
+				title.toLowerCase().includes("course") ||
+				title.toLowerCase().includes("learn") ||
+				title.toLowerCase().includes("math") ||
+				title.toLowerCase().includes("calculus");
 
-		if (focusRatio > 0.9) return 95; // Excellent focus
-		if (focusRatio > 0.8) return 85; // Good focus
-		if (focusRatio > 0.6) return 70; // Moderate focus
-		if (focusRatio > 0.4) return 50; // Low focus
-		if (focusRatio > 0.2) return 30; // Very low focus
-		return 10; // Minimal focus
-	}
+			if (isEducational) {
+				return `Watched ${duration}min of educational content: "${title}". ${productivityLevel} productivity (${totalScore.toFixed(
+					0
+				)}/100).`;
+			} else {
+				return `Watched ${duration}min of entertainment: "${title}". ${productivityLevel} productivity (${totalScore.toFixed(
+					0
+				)}/100).`;
+			}
+		}
 
-	analyzeSwitchingPattern(activityWindow: WindowSummary): number {
-		const switchRate = activityWindow.switchRate || 0;
-		const userPreferred = this.userPatterns.preferredSwitchingRate;
+		if (
+			typeof activityWindow.url === "string" &&
+			(activityWindow.url.includes("github") || activityWindow.url.includes("stackoverflow"))
+		) {
+			return `Spent ${duration}min on development resources. ${productivityLevel} productivity (${totalScore.toFixed(
+				0
+			)}/100).`;
+		}
 
-		// Score based on deviation from user's preferred pattern
-		const deviation = Math.abs(switchRate - userPreferred);
-
-		if (deviation < 0.5) return 90; // Very close to preferred
-		if (deviation < 1.0) return 75; // Close to preferred
-		if (deviation < 2.0) return 60; // Moderate deviation
-		if (deviation < 3.0) return 40; // High deviation
-		return 20; // Very high deviation
+		// Generic insight
+		return `Used ${app} for ${duration}min. ${productivityLevel} productivity (${totalScore.toFixed(
+			0
+		)}/100). Switch rate: ${switchRate}/min.`;
 	}
 
 	getRuleBasedContext(activityWindow: WindowSummary): AIContext {
 		const app = activityWindow.activeApp || "";
 		const title = activityWindow.windowTitle || "";
+		const url = activityWindow.url || "";
 		const focusRatio = activityWindow.focusRatio || 0;
 
 		// Determine context category and apply appropriate multiplier
@@ -301,53 +625,130 @@ export class FocusAI {
 			insight = "User appears to be idle";
 			context = "Idle";
 		}
-		// App-based analysis for active periods
-		else if (this.userPatterns.productiveApps.has(app)) {
-			contextCategory = "productive";
-			multiplier = this.contextMultipliers.productive;
-			insight = "Using productive application";
-			context = "Focused work";
-		} else if (this.userPatterns.distractingApps.has(app)) {
-			contextCategory = "distracted";
-			multiplier = this.contextMultipliers.distracted;
-			insight = "Using potentially distracting app";
-			context = "Social media or entertainment";
-		} else if (this.userPatterns.learningApps.has(app)) {
-			// Learning apps can be productive or neutral depending on context
+		// Enhanced content analysis using title and URL
+		else {
 			const titleLower = title.toLowerCase();
-			if (
-				titleLower.includes("tutorial") ||
-				titleLower.includes("course") ||
-				titleLower.includes("educational")
-			) {
+			const urlLower = url.toLowerCase();
+
+			// Educational content detection
+			const educationalKeywords = [
+				"tutorial",
+				"course",
+				"lesson",
+				"how to",
+				"explained",
+				"guide",
+				"learn",
+				"calculus",
+				"mathematics",
+				"physics",
+				"chemistry",
+				"biology",
+				"programming",
+				"python",
+				"javascript",
+				"coding",
+				"algorithm",
+				"data structure",
+				"machine learning",
+				"khan academy",
+				"coursera",
+				"edx",
+				"mit",
+				"stanford",
+				"university",
+				"academic",
+			];
+
+			// Entertainment content detection
+			const entertainmentKeywords = [
+				"funny",
+				"viral",
+				"reaction",
+				"prank",
+				"challenge",
+				"compilation",
+				"cat",
+				"celebrity",
+				"gossip",
+				"music video",
+				"gaming",
+				"gameplay",
+				"entertainment",
+				"cooking",
+				"recipe",
+				"food",
+				"lifestyle",
+				"vlog",
+				"unboxing",
+				"review",
+			];
+
+			// Professional/work content detection
+			const professionalKeywords = [
+				"meeting",
+				"conference",
+				"webinar",
+				"presentation",
+				"documentation",
+				"api",
+				"documentation",
+				"manual",
+				"research",
+				"analysis",
+				"business",
+			];
+
+			// Count educational vs entertainment keywords
+			const educationalScore = educationalKeywords.reduce(
+				(score, keyword) =>
+					score + (titleLower.includes(keyword) ? 1 : 0) + (urlLower.includes(keyword) ? 0.5 : 0),
+				0
+			);
+
+			const entertainmentScore = entertainmentKeywords.reduce(
+				(score, keyword) =>
+					score + (titleLower.includes(keyword) ? 1 : 0) + (urlLower.includes(keyword) ? 0.5 : 0),
+				0
+			);
+
+			const professionalScore = professionalKeywords.reduce(
+				(score, keyword) =>
+					score + (titleLower.includes(keyword) ? 1 : 0) + (urlLower.includes(keyword) ? 0.5 : 0),
+				0
+			);
+
+			// Determine content type based on scores
+			if (educationalScore > entertainmentScore && educationalScore > 0) {
+				contextCategory = "productive";
+				multiplier = Math.min(2.0, 1.0 + educationalScore * 0.2);
+				insight = `Educational content detected: ${title.substring(0, 50)}...`;
+				context = "Educational learning";
+			} else if (professionalScore > 0) {
 				contextCategory = "productive";
 				multiplier = this.contextMultipliers.productive;
-				insight = "Learning from educational content";
-				context = "Educational consumption";
-			} else {
-				contextCategory = "neutral";
-				multiplier = this.contextMultipliers.neutral;
-				insight = "Educational content consumption";
-				context = "Learning";
-			}
-		}
-
-		// Title-based analysis for additional context
-		if (title && contextCategory !== "idle") {
-			const titleLower = title.toLowerCase();
-			if (
-				titleLower.includes("game") ||
-				titleLower.includes("entertainment") ||
-				(titleLower.includes("youtube") && !titleLower.includes("tutorial"))
-			) {
+				insight = "Professional or work-related content";
+				context = "Professional development";
+			} else if (entertainmentScore > educationalScore && entertainmentScore > 0) {
+				contextCategory = "distracted";
+				multiplier = Math.max(0.1, 0.5 - entertainmentScore * 0.1);
+				insight = `Entertainment content detected: ${title.substring(0, 50)}...`;
+				context = "Entertainment";
+			} else if (this.userPatterns.productiveApps.has(app)) {
+				contextCategory = "productive";
+				multiplier = this.contextMultipliers.productive;
+				insight = "Using productive application";
+				context = "Focused work";
+			} else if (this.userPatterns.distractingApps.has(app)) {
 				contextCategory = "distracted";
 				multiplier = this.contextMultipliers.distracted;
-				insight = "Entertainment activity";
-				context = "Recreation";
+				insight = "Using potentially distracting app";
+				context = "Social media or entertainment";
 			}
 		}
 
 		return {
+			category: contextCategory,
 			multiplier: multiplier,
 			insight: insight,
 			context: context,
@@ -358,7 +759,12 @@ export class FocusAI {
 	applyAIMultiplier(baseScore: number, aiContext: AIContext): number {
 		// Apply context multiplier to base score
 		const multiplier = aiContext.multiplier;
-		const adjustedScore = baseScore * multiplier;
+		const confidence = aiContext.confidence || 0.8;
+
+		// Adjust multiplier based on AI confidence
+		// Lower confidence = more conservative scoring
+		const confidenceAdjustedMultiplier = 1.0 + (multiplier - 1.0) * confidence;
+		const adjustedScore = baseScore * confidenceAdjustedMultiplier;
 
 		// Apply smoothing for human-like, gradual score changes
 		// This prevents jarring jumps in productivity scores
@@ -367,6 +773,12 @@ export class FocusAI {
 
 		// Ensure score doesn't go negative (except for distracting activities)
 		const finalScore = Math.max(0, smoothedScore);
+
+		console.log(
+			`🎯 Score Application: base=${baseScore.toFixed(2)}, multiplier=${multiplier.toFixed(
+				2
+			)}, confidence=${confidence.toFixed(2)}, final=${finalScore.toFixed(2)}`
+		);
 
 		return finalScore;
 	}
@@ -387,7 +799,16 @@ export class FocusAI {
 	}
 
 	getFallbackScore(activityWindow: WindowSummary): FocusScore {
-		const baseScore = this.calculateBaseScore(activityWindow);
+		// Simple fallback calculation with proper scaling
+		const windowDurationMinutes = activityWindow.duration / 60000;
+		const hoursActive = windowDurationMinutes / 60;
+
+		// Use neutral productivity: 50/100 base score, 1.0 AI multiplier
+		// Scaled to 100 pts/hr at peak: (50 * 1.0 / 1.8) * hoursActive
+		const baseScore = (50 / 1.8) * hoursActive;
+
+		this.updateCumulativeScore(baseScore);
+
 		return {
 			instantaneous: Math.round(baseScore * 100) / 100, // Round to 2 decimal places
 			cumulative: Math.round(this.cumulativeScore * 100) / 100,

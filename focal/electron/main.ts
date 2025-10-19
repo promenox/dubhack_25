@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { FocusAI } from "./focus-ai";
 import { FocusTracker } from "./focus-tracker";
+import { databaseService } from "./services/database";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,26 +40,14 @@ class MainApp {
 		this.plantOverlayWindow = null;
 		this.focusTracker = new FocusTracker();
 
-		// Initialize FocusAI with Bedrock API key
-		// You can set this via environment variable or directly here
-		const bedrockApiKey =
-			process.env.BEDROCK_API_KEY ||
-			"ABSKQmVkcm9ja0FQSUtleS1rczM5LWF0LTI3NDEwNjczMzMwNDpYZk1GSUFKZThJckt1TWxrT0RIUzAzVkVLR1VBZHJaZTJDbVYzcFQ0eDdjMHlUUUJsYnUvd1BmYituYz0=";
-		this.focusAI = new FocusAI(bedrockApiKey);
+		// Initialize FocusAI
+		this.focusAI = new FocusAI();
 
 		this.isDev = process.argv.includes("--dev");
 		this.updateInterval = null;
 		this.sessionActive = false;
 		this.sessionStartTime = null;
-
-		// Initialize keystroke tracking
-		this.initializeKeystrokeTracking();
 		this.overlayUpdateInterval = null;
-	}
-
-	initializeKeystrokeTracking() {
-		console.log("🔑 Initializing keystroke tracking...");
-		console.log("✅ Keystroke tracking will be set up when main window is ready");
 	}
 
 	createWindow() {
@@ -87,20 +76,6 @@ class MainApp {
 		} else {
 			this.mainWindow.loadFile(path.join(RENDERER_DIST, "index.html"));
 		}
-
-		// Set up keyboard event tracking for the main window (fallback if global hook fails)
-		this.mainWindow.webContents.on("before-input-event", (_event, input) => {
-			if (input.type === "keyDown" && this.focusTracker) {
-				// Only count if global hook is not active (fallback mode)
-				if (!this.focusTracker.iohook) {
-					this.focusTracker.keystrokesSinceLastTick++;
-					// Log all keystrokes for debugging
-					console.log(
-						`✓ Keypress detected in main window (fallback mode): ${this.focusTracker.keystrokesSinceLastTick} total`
-					);
-				}
-			}
-		});
 
 		// Show window when ready
 		this.mainWindow.once("ready-to-show", () => {
@@ -217,19 +192,10 @@ class MainApp {
 			this.overlayWindow = null;
 		});
 
-		// Add drag functionality and keyboard tracking
+		// Add drag functionality
 		this.overlayWindow.webContents.on("before-input-event", (_event, input) => {
 			if (input.type === "mouseDown") {
 				this.overlayWindow?.setIgnoreMouseEvents(false);
-			} else if (input.type === "keyDown" && this.focusTracker) {
-				// Only count if global hook is not active (fallback mode)
-				if (!this.focusTracker.iohook) {
-					this.focusTracker.keystrokesSinceLastTick++;
-					// Log all keystrokes for debugging
-					console.log(
-						`✓ Keypress detected in overlay window (fallback mode): ${this.focusTracker.keystrokesSinceLastTick} total`
-					);
-				}
 			}
 		});
 	}
@@ -403,10 +369,6 @@ class MainApp {
 					this.overlayWindow.webContents.send("focus-update", {
 						windowTitle: summary.windowTitle,
 						url: summary.url,
-						keystrokeCount: summary.keystrokeCount,
-						keystrokeRate: Math.round(summary.keystrokeRate * 10) / 10,
-						mouseMovements: summary.mouseMovements,
-						mouseMovementRate: Math.round(summary.mouseMovementRate * 10) / 10,
 						instantaneous: focusData.instantaneous,
 						cumulative: focusData.cumulative,
 						aiInsight: focusData.aiInsight,
@@ -452,7 +414,6 @@ class MainApp {
 							windowTitle: windowSummary.windowTitle,
 							url: windowSummary.url,
 							switchRate: windowSummary.switchRate,
-							keystrokeRate: windowSummary.keystrokeRate,
 							timestamp: Date.now(),
 						};
 
@@ -465,10 +426,6 @@ class MainApp {
 							this.overlayWindow.webContents.send("focus-update", {
 								windowTitle: windowSummary.windowTitle,
 								url: windowSummary.url,
-								keystrokeCount: windowSummary.keystrokeCount,
-								keystrokeRate: windowSummary.keystrokeRate,
-								mouseMovements: windowSummary.mouseMovements,
-								mouseMovementRate: windowSummary.mouseMovementRate,
 								instantaneous: focusData.instantaneous,
 								cumulative: focusData.cumulative,
 								aiInsight: focusData.aiInsight,
@@ -521,15 +478,23 @@ class MainApp {
 		// });
 
 		// Handle session control
-		ipcMain.on("start-session", () => {
-			console.log("Starting focus session...");
-			if (!this.sessionActive) {
-				this.sessionActive = true;
-				this.sessionStartTime = Date.now();
-				this.focusTracker.start();
-				this.startTracking();
-				this.showOverlay(this.sessionStartTime);
-				console.log("Overlay should be created and shown");
+		ipcMain.on("start-session", async () => {
+			console.log("Starting focus session... YAYYYYAYAYAYAYYAYAYAYAYYAYAYAYAYAY");
+			this.sessionActive = true;
+			this.sessionStartTime = Date.now();
+			this.focusTracker.start();
+			this.startTracking();
+			this.showOverlay(this.sessionStartTime);
+			console.log("Overlay should be created and shown");
+
+			// Save dummy score of 420 to database
+			try {
+				console.log("💾 Attempting to save dummy score of 420 to database...");
+				await databaseService.saveScore(420);
+				console.log("✅ Dummy score of 420 saved successfully!");
+			} catch (error: any) {
+				console.error("❌ Failed to save dummy score:", error.message);
+				// Don't block session start if database save fails
 			}
 		});
 
@@ -543,13 +508,7 @@ class MainApp {
 			}
 		});
 
-		// Handle permission check requests
-		ipcMain.on("check-permissions", () => {
-			console.log("Permission check requested");
-			if (this.focusTracker) {
-				this.focusTracker.checkAccessibilityPermissions();
-			}
-		});
+		// Permission checks removed - no longer needed without keystroke tracking
 
 		// Handle immediate metadata extraction requests
 		ipcMain.on("extract-metadata", async () => {
@@ -589,6 +548,47 @@ class MainApp {
 			}
 		});
 
+		// Handle auth token updates
+		ipcMain.on("set-auth-token", (_e, token: string) => {
+			console.log("🔑 Main process: Auth token received from renderer");
+			console.log("🔑 Main process: Token length:", token?.length || 0);
+			databaseService.setAuthToken(token);
+			console.log("✅ Main process: Token stored in database service");
+		});
+
+		// Handle fetching score from database
+		ipcMain.handle("fetch-score", async () => {
+			try {
+				const score = await databaseService.fetchScore();
+				return { success: true, score };
+			} catch (error: any) {
+				console.error("Error fetching score:", error.message);
+				return { success: false, error: error.message };
+			}
+		});
+
+		// Handle updating score in database
+		ipcMain.handle("update-score", async (_e, score: number) => {
+			try {
+				await databaseService.updateScore(score);
+				return { success: true };
+			} catch (error: any) {
+				console.error("Error updating score:", error.message);
+				return { success: false, error: error.message };
+			}
+		});
+
+		// Handle setting score in database (overwrite)
+		ipcMain.handle("set-score", async (_e, score: number) => {
+			try {
+				await databaseService.setScore(score);
+				return { success: true };
+			} catch (error: any) {
+				console.error("Error setting score:", error.message);
+				return { success: false, error: error.message };
+			}
+		});
+
 		// Handle debug data requests
 		ipcMain.on("request-debug-data", () => {
 			const currentWindow = this.focusTracker.currentWindow;
@@ -606,8 +606,6 @@ class MainApp {
 							windowTitle: windowSummary.windowTitle,
 							url: windowSummary.url,
 							switchRate: windowSummary.switchRate,
-							keystrokeRate: windowSummary.keystrokeRate,
-							keystrokeCount: windowSummary.keystrokeCount,
 							baseScore: focusData.baseScore,
 							aiMultiplier: focusData.aiMultiplier,
 							focusRatio: windowSummary.focusRatio,
@@ -688,7 +686,6 @@ class MainApp {
 						windowTitle: windowSummary.windowTitle,
 						url: windowSummary.url,
 						switchRate: windowSummary.switchRate,
-						keystrokeRate: windowSummary.keystrokeRate,
 						baseScore: focusData.baseScore,
 						aiMultiplier: focusData.aiMultiplier,
 						timestamp: Date.now(),

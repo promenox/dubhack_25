@@ -8,6 +8,7 @@ import Garden from "./components/Garden";
 import Overlay from "./components/Overlay";
 import PlantOverlayWindow from "./components/PlantOverlayWindow";
 import authService from "./services/auth";
+import { initializeDatabaseAuth } from "./utils/database";
 
 function App() {
 	const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -19,6 +20,10 @@ function App() {
 			try {
 				await authService.getCurrentSession();
 				setIsAuthenticated(true);
+
+				// Initialize database auth with existing token
+				initializeDatabaseAuth();
+				console.log("🔑 Database auth initialized with existing session");
 			} catch (error) {
 				setIsAuthenticated(false);
 			} finally {

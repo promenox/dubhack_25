@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { GardenGame, SEED_LIBRARY, type GardenState, type PlantType } from "../core/index";
+import { GardenGame, getSeedLibrary, type GardenState, type PlantType } from "../core/index";
 import { createLocalStorageAdapter } from "../storage/localStorageAdapter";
 
 type GameAction =
@@ -53,13 +53,7 @@ export const useGardenGame = () => {
 	useEffect(() => {
 		if (!isReady || !gameRef.current) return;
 		const interval = window.setInterval(() => {
-			// For now, use a static multiplier of 1. Later can integrate with focus tracking
-			const currentMult = gameRef.current!.getMultiplier();
-			if (1 !== currentMult) {
-				gameRef.current!.setGrowthMultiplier(1);
-				setMultiplier(1);
-			}
-
+			// Don't override multiplier here - it's controlled by productivity score
 			gameRef.current?.tick(1).catch((err) => console.error("Tick failed", err));
 		}, 1000);
 
@@ -109,7 +103,7 @@ export const useGardenGame = () => {
 		isReady,
 		error,
 		dispatch,
-		seeds: SEED_LIBRARY,
+		seeds: getSeedLibrary(),
 		multiplier,
 	};
 };

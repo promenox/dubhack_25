@@ -3,8 +3,8 @@ import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedroc
 const client = new BedrockRuntimeClient({
 	region: "us-east-1", // must match where Bedrock is available in your account
 	credentials: {
-		accessKeyId: "",
-		secretAccessKey: "",
+		accessKeyId: "AKIAT7UQI2L4PPQVMB3X",
+		secretAccessKey: "Z4F1k3FFIBe82cWAXNEqY+EWHFelrbVRGaEhkZgD",
 	},
 });
 
@@ -16,7 +16,7 @@ export async function invoke(prompt: string) {
 	};
 
 	const command = new InvokeModelCommand({
-		modelId: "mistral.mistral-7b-instruct-v0:2",
+		modelId: "meta.llama3-1-8b-instruct-v1:0",
 		contentType: "application/json",
 		accept: "application/json",
 		body: JSON.stringify(body),

@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { useMemo } from "react";
 import { getPlantIconSrc } from "../../assets/plantIcons";
-import { SEED_LIBRARY } from "../../core/gardenGame";
+import { getSeedLibrary } from "../../core/gardenGame";
 import type { Plant, PlantType, Plot } from "../../core/index";
 import { PlantVisual, getStageLabel } from "./PlantVisual";
 
@@ -47,6 +47,8 @@ export const GardenGrid = ({
 		return "repeat(4, minmax(0, 1fr))";
 	}, [plots.length]);
 
+	const seedLibrary = getSeedLibrary();
+
 	return (
 		<div className="garden-section">
 			<div className="garden-grid" style={{ gridTemplateColumns: gridTemplate }}>
@@ -55,7 +57,7 @@ export const GardenGrid = ({
 					const stageLabel = plant ? getStageLabel(plant) : "Empty Plot";
 					const percent = plant ? getProgressPercent(plant) : 0;
 					const progressColor = plant ? GROWTH_COLORS[stageLabel] : "transparent";
-					const definition = plant ? SEED_LIBRARY[plant.type] : undefined;
+					const definition = plant ? seedLibrary[plant.type] : undefined;
 					const iconSrc = definition ? getPlantIconSrc(definition.icon) : undefined;
 					const isSelectedForOverlay = Boolean(plant && selectedOverlayPlotId === plot.id);
 

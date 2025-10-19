@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getPlantIconSrc } from "../assets/plantIcons";
-import { SEED_LIBRARY } from "../core/gardenGame";
+import { getSeedLibrary } from "../core/gardenGame";
 import type { Plant, PlantType } from "../core/index";
 import { PlantVisual, getStageLabel } from "./garden/PlantVisual";
 import "./PlantOverlayWindow.css";
@@ -87,7 +87,8 @@ const PlantOverlayWindow = () => {
 		  }
 		: null;
 
-	const definition = plant ? SEED_LIBRARY[plant.type] : undefined;
+	const seedLibrary = getSeedLibrary();
+	const definition = plant ? seedLibrary[plant.type] : undefined;
 	const iconSrc = definition ? getPlantIconSrc(definition.icon) : undefined;
 	const stageLabel = plant ? getStageLabel(plant) : "";
 

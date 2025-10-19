@@ -1,3 +1,4 @@
+import { setScore } from "../utils/database";
 import { createInitialGardenState, GardenState, Plant, PlantType } from "./index";
 
 export interface GardenStorage {
@@ -17,71 +18,116 @@ export interface SeedDefinition {
 
 type LibraryPlantType = PlantType;
 
-export const SEED_LIBRARY: Record<LibraryPlantType, SeedDefinition> = {
-	seedling: {
-		type: "seedling",
-		displayName: "Morning Sprout",
-		description: "Quick-growing beginner plant.",
-		growthDuration: 60,
-		harvestReward: 5,
-		seedCost: 2,
-		icon: "seedling.svg",
-	},
-	blossom: {
-		type: "blossom",
-		displayName: "Blooming Lilac",
-		description: "Balanced growth and reward.",
-		growthDuration: 300,
-		harvestReward: 20,
-		seedCost: 5,
-		icon: "blossom.svg",
-	},
-	evergreen: {
-		type: "evergreen",
-		displayName: "Evergreen Sapling",
-		description: "Slow grower with generous harvest.",
-		growthDuration: 600,
-		harvestReward: 50,
-		seedCost: 10,
-		icon: "evergreen.svg",
-	},
-	rose: {
-		type: "rose",
-		displayName: "Crimson Rose",
-		description: "Short bloom with a bold harvest bonus.",
-		growthDuration: 1200,
-		harvestReward: 70,
-		seedCost: 30,
-		icon: "rose.svg",
-	},
-	lavender: {
-		type: "lavender",
-		displayName: "Moonlit Lavender",
-		description: "A calming mid-length grower with steady returns.",
-		growthDuration: 1800,
-		harvestReward: 150,
-		seedCost: 90,
-		icon: "lavender.svg",
-	},
-	beanstalk: {
-		type: "beanstalk",
-		displayName: "Skyward Beanstalk",
-		description: "Tall climber with a hearty harvest for patient gardeners.",
-		growthDuration: 3600,
-		harvestReward: 300,
-		seedCost: 150,
-		icon: "beanstalk.svg",
-	},
-	sixtyseven: {
-		type: "sixtyseven",
-		displayName: "Six Sevenium",
-		description: "A curious numerical bloom that adds quirky prosperity.",
-		growthDuration: 420,
-		harvestReward: 67,
-		seedCost: 42,
-		icon: "sixtyseven.svg",
+// Default growth durations (in seconds) - can be overridden
+export interface GrowthConfig {
+	durations: Record<PlantType, number>;
+}
+
+// Default configuration
+const DEFAULT_GROWTH_CONFIG: GrowthConfig = {
+	durations: {
+		seedling: 60, // 1 minute
+		blossom: 300, // 5 minutes
+		evergreen: 600, // 10 minutes
+		rose: 1200, // 20 minutes
+		lavender: 1800, // 30 minutes
+		beanstalk: 3600, // 1 hour
+		sixtyseven: 420, // 7 minutes
 	},
 };
+
+// Allow external configuration
+let currentGrowthConfig: GrowthConfig = { ...DEFAULT_GROWTH_CONFIG };
+
+export function setGrowthConfig(config: Partial<GrowthConfig>): void {
+	currentGrowthConfig = {
+		durations: {
+			...currentGrowthConfig.durations,
+			...(config.durations || {}),
+		},
+	};
+}
+
+export function getGrowthConfig(): GrowthConfig {
+	return { ...currentGrowthConfig };
+}
+
+export function resetGrowthConfig(): void {
+	currentGrowthConfig = { ...DEFAULT_GROWTH_CONFIG };
+}
+
+// Build SEED_LIBRARY dynamically based on current config
+export function getSeedLibrary(): Record<LibraryPlantType, SeedDefinition> {
+	const config = getGrowthConfig();
+	return {
+		seedling: {
+			type: "seedling",
+			displayName: "Morning Sprout",
+			description: "Quick-growing beginner plant.",
+			growthDuration: config.durations.seedling,
+			harvestReward: 5,
+			seedCost: 2,
+			icon: "seedling.svg",
+		},
+		blossom: {
+			type: "blossom",
+			displayName: "Blooming Lilac",
+			description: "Balanced growth and reward.",
+			growthDuration: config.durations.blossom,
+			harvestReward: 20,
+			seedCost: 5,
+			icon: "blossom.svg",
+		},
+		evergreen: {
+			type: "evergreen",
+			displayName: "Evergreen Sapling",
+			description: "Slow grower with generous harvest.",
+			growthDuration: config.durations.evergreen,
+			harvestReward: 50,
+			seedCost: 10,
+			icon: "evergreen.svg",
+		},
+		rose: {
+			type: "rose",
+			displayName: "Crimson Rose",
+			description: "Short bloom with a bold harvest bonus.",
+			growthDuration: config.durations.rose,
+			harvestReward: 70,
+			seedCost: 30,
+			icon: "rose.svg",
+		},
+		lavender: {
+			type: "lavender",
+			displayName: "Moonlit Lavender",
+			description: "A calming mid-length grower with steady returns.",
+			growthDuration: config.durations.lavender,
+			harvestReward: 150,
+			seedCost: 90,
+			icon: "lavender.svg",
+		},
+		beanstalk: {
+			type: "beanstalk",
+			displayName: "Skyward Beanstalk",
+			description: "Tall climber with a hearty harvest for patient gardeners.",
+			growthDuration: config.durations.beanstalk,
+			harvestReward: 300,
+			seedCost: 150,
+			icon: "beanstalk.svg",
+		},
+		sixtyseven: {
+			type: "sixtyseven",
+			displayName: "Six Sevenium",
+			description: "A curious numerical bloom that adds quirky prosperity.",
+			growthDuration: config.durations.sixtyseven,
+			harvestReward: 67,
+			seedCost: 42,
+			icon: "sixtyseven.svg",
+		},
+	};
+}
+
+// Legacy export - use getSeedLibrary() for dynamic access
+export const SEED_LIBRARY = getSeedLibrary();
 
 type Listener = (state: GardenState) => void;
 
@@ -110,6 +156,10 @@ export class GardenGame {
 		const game = new GardenGame(storage, initial);
 		game.applyOfflineGrowth();
 		await game.persistState();
+
+		// Sync initial score to database
+		game.syncScoreToDatabase();
+
 		return game;
 	}
 
@@ -130,7 +180,8 @@ export class GardenGame {
 	}
 
 	async plantSeed(plotId: string, seedType: PlantType) {
-		const definition = SEED_LIBRARY[seedType];
+		const seedLibrary = getSeedLibrary();
+		const definition = seedLibrary[seedType];
 		if (!definition) {
 			throw new Error(`Unknown seed type: ${seedType}`);
 		}
@@ -173,7 +224,8 @@ export class GardenGame {
 			throw new Error("Plant is not ready to harvest");
 		}
 
-		const definition = SEED_LIBRARY[plot.plant.type];
+		const seedLibrary = getSeedLibrary();
+		const definition = seedLibrary[plot.plant.type];
 		plot.plant = null;
 		this.addCurrency(definition.harvestReward);
 
@@ -182,6 +234,19 @@ export class GardenGame {
 
 	addCurrency(amount: number) {
 		this.state.inventory.currency = Math.max(0, this.state.inventory.currency + amount);
+		// Sync score to database
+		this.syncScoreToDatabase();
+	}
+
+	/**
+	 * Sync current currency (score) to database
+	 */
+	private syncScoreToDatabase() {
+		const currentScore = this.state.inventory.currency;
+		// Use Promise to avoid blocking, but don't await to keep it non-blocking
+		setScore(currentScore).catch((error) => {
+			console.error("Failed to sync score to database:", error);
+		});
 	}
 
 	async unlockPlot(cost = DEFAULT_UNLOCK_COST) {
@@ -196,17 +261,24 @@ export class GardenGame {
 			plant: null,
 		});
 
+		// Sync score to database
+		this.syncScoreToDatabase();
+
 		await this.persistAndNotify();
 	}
 
 	async buySeed(seedType: PlantType) {
-		const definition = SEED_LIBRARY[seedType];
+		const seedLibrary = getSeedLibrary();
+		const definition = seedLibrary[seedType];
 		if (this.state.inventory.currency < definition.seedCost) {
 			throw new Error("Not enough currency for this seed");
 		}
 
 		this.state.inventory.currency -= definition.seedCost;
 		this.state.inventory.seeds[seedType] = (this.state.inventory.seeds[seedType] ?? 0) + 1;
+
+		// Sync score to database
+		this.syncScoreToDatabase();
 
 		await this.persistAndNotify();
 	}

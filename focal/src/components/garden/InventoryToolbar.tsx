@@ -29,6 +29,14 @@ export const InventoryToolbar = ({
 }: InventoryToolbarProps) => {
 	const { currency, seeds: inventorySeeds } = state.inventory;
 
+	// Determine multiplier color class based on productivity
+	const getMultiplierClass = (mult: number): string => {
+		if (mult >= 2.5) return "inventory-toolbar__multiplier--excellent"; // 2.5x-3.0x
+		if (mult >= 1.5) return "inventory-toolbar__multiplier--good"; // 1.5x-2.5x
+		if (mult >= 1.0) return "inventory-toolbar__multiplier--normal"; // 1.0x-1.5x
+		return "inventory-toolbar__multiplier--slow"; // 0.5x-1.0x
+	};
+
 	const handleWheel: React.WheelEventHandler<HTMLDivElement> = useCallback((event) => {
 		if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
 			return;
@@ -96,9 +104,13 @@ export const InventoryToolbar = ({
 							<span className="inventory-toolbar__coin-icon" aria-hidden="true" />
 							<span className="inventory-toolbar__coin-amount">{currency}</span>
 						</div>
-						<div className="inventory-toolbar__multiplier" aria-label="Growth multiplier">
-							<span>Growth</span>
-							<strong>{multiplier.toFixed(1)}x</strong>
+						<div
+							className={clsx("inventory-toolbar__multiplier", getMultiplierClass(multiplier))}
+							aria-label="Growth multiplier based on productivity"
+							title="Growth speed based on your productivity score"
+						>
+							<span>Growth Speed</span>
+							<strong>{multiplier.toFixed(2)}x</strong>
 						</div>
 					</div>
 				</div>

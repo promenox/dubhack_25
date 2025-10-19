@@ -1,5 +1,4 @@
 import { exec } from "child_process";
-import { shell } from "electron";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
@@ -8,8 +7,6 @@ interface ActivityMetadata {
 	activeApp: string | null;
 	windowTitle: string | null;
 	url: string | null;
-	keystrokeCount: number;
-	mouseMovements: number;
 	idleTime: number;
 	activeTime: number;
 	appSwitches: number;
@@ -32,10 +29,6 @@ interface WindowSummary {
 	activeApp: string | null;
 	windowTitle: string | null;
 	url: string | null;
-	keystrokeCount: number;
-	keystrokeRate: number;
-	mouseMovements: number;
-	mouseMovementRate: number;
 	appSwitches: number;
 	switchRate: number;
 	focusRatio: number;
@@ -49,19 +42,17 @@ class ActivityWindow {
 	endTime: number;
 	metadata: ActivityMetadata;
 	isComplete: boolean;
-	batchInterval: number; // 3-5 minute batching intervals
+	batchInterval: number; // Configurable batching intervals
 
-	constructor() {
+	constructor(windowDurationMinutes: number = 3 + Math.random() * 2) {
 		this.startTime = Date.now();
-		// Randomize batch interval between 3-5 minutes for natural variation
-		this.batchInterval = (3 + Math.random() * 2) * 60 * 1000; // 3-5 minutes
+		// Use configurable window duration (default 3-5 minutes for natural variation)
+		this.batchInterval = windowDurationMinutes * 60 * 1000;
 		this.endTime = this.startTime + this.batchInterval;
 		this.metadata = {
 			activeApp: null,
 			windowTitle: null,
 			url: null,
-			keystrokeCount: 0,
-			mouseMovements: 0,
 			idleTime: 0,
 			activeTime: 0,
 			appSwitches: 0,
@@ -75,7 +66,7 @@ class ActivityWindow {
 		this.isComplete = false;
 	}
 
-	addActivity(appName: string, windowTitle: string, keystrokes = 0, url = "", mouseMovements = 0) {
+	addActivity(appName: string, windowTitle: string, url = "") {
 		const now = Date.now();
 
 		// Track app switching (including tab changes for browsers)
@@ -102,8 +93,6 @@ class ActivityWindow {
 		this.metadata.activeApp = appName;
 		this.metadata.windowTitle = windowTitle;
 		this.metadata.url = url;
-		this.metadata.keystrokeCount += keystrokes;
-		this.metadata.mouseMovements += mouseMovements;
 		this.metadata.lastActivity = now;
 
 		// Update idle/active time
@@ -159,10 +148,6 @@ class ActivityWindow {
 			activeApp: this.metadata.activeApp,
 			windowTitle: this.metadata.windowTitle,
 			url: this.metadata.url,
-			keystrokeCount: this.metadata.keystrokeCount,
-			keystrokeRate: this.metadata.keystrokeCount / durationMinutes,
-			mouseMovements: this.metadata.mouseMovements,
-			mouseMovementRate: this.metadata.mouseMovements / durationMinutes,
 			appSwitches: this.metadata.appSwitches,
 			switchRate: this.metadata.appSwitches / durationMinutes,
 			focusRatio: this.metadata.activeTime / totalTime,
@@ -187,11 +172,6 @@ export class FocusTracker {
 	isRunning: boolean;
 	updateInterval: NodeJS.Timeout | null;
 	demoMode: boolean;
-	iohook: any;
-	keystrokesSinceLastTick: number;
-	mouseMovementsSinceLastTick: number;
-	lastMouseX: number;
-	lastMouseY: number;
 	sessionStartTimestamp: number | null;
 	demoApps: DemoApp[];
 	currentAppIndex: number;
@@ -199,19 +179,17 @@ export class FocusTracker {
 	lastActiveApp: string | null;
 	lastWindowTitle: string | null;
 	lastUrl: string | null;
+	windowDurationMinutes: number;
 
-	constructor() {
-		this.currentWindow = new ActivityWindow();
+	constructor(windowDurationMinutes?: number) {
+		// Use provided duration or randomize between 3-5 minutes
+		this.windowDurationMinutes = windowDurationMinutes ?? 3 + Math.random() * 2;
+		this.currentWindow = new ActivityWindow(this.windowDurationMinutes);
 		this.completedWindows = [];
 		this.isTracking = false;
 		this.isRunning = false;
 		this.updateInterval = null;
 		this.demoMode = false;
-		this.iohook = null;
-		this.keystrokesSinceLastTick = 0;
-		this.mouseMovementsSinceLastTick = 0;
-		this.lastMouseX = 0;
-		this.lastMouseY = 0;
 		this.sessionStartTimestamp = null;
 
 		// Demo apps for simulation
@@ -242,9 +220,6 @@ export class FocusTracker {
 		this.sessionStartTimestamp = Date.now();
 		console.log("FocusAI tracking started");
 
-		// Initialize global key hook if available
-		this.initKeyHook().catch(console.error);
-
 		// Start activity monitoring
 		this.startActivityMonitoring();
 
@@ -260,8 +235,6 @@ export class FocusTracker {
 			clearInterval(this.updateInterval);
 		}
 
-		this.disposeKeyHook();
-
 		// Complete current window
 		if (this.currentWindow && !this.currentWindow.isComplete) {
 			this.completedWindows.push(this.currentWindow.complete());
@@ -272,18 +245,16 @@ export class FocusTracker {
 
 	startActivityMonitoring() {
 		// Event-driven tracking: only collect metadata on context changes
-		// Engagement data (keystrokes/mouse) collected continuously at low frequency
 		this.updateInterval = setInterval(() => {
 			if (!this.isTracking) return;
 
 			if (this.demoMode) {
 				this.simulateActivity();
 			} else {
-				this.trackEngagementOnly();
 				// Check for context changes every 3 seconds
 				this.detectContextChanges();
 			}
-		}, 3000); // Low frequency engagement monitoring every 3 seconds
+		}, 3000); // Context change monitoring every 3 seconds
 	}
 
 	async detectContextChanges() {
@@ -325,16 +296,7 @@ export class FocusTracker {
 				this.lastUrl = url;
 
 				// Record the context change as activity
-				const keystrokes = this.consumeKeystrokes();
-				const mouseMovements = this.consumeMouseMovements();
-
-				this.currentWindow.addActivity(
-					appName || "Unknown App",
-					windowTitle || "Unknown Window",
-					keystrokes,
-					url,
-					mouseMovements
-				);
+				this.currentWindow.addActivity(appName || "Unknown App", windowTitle || "Unknown Window", url);
 
 				// Trigger immediate AI analysis for context change
 				this.triggerContextAnalysis();
@@ -358,11 +320,9 @@ export class FocusTracker {
 			this.lastSwitchTime = now;
 		}
 
-		// Add keystroke activity based on current app
+		// Add activity based on current app
 		const currentApp = this.demoApps[this.currentAppIndex];
-		const keystrokes = this.getKeystrokeRate(currentApp.category);
-
-		this.currentWindow.addActivity(currentApp.name, currentApp.title, keystrokes);
+		this.currentWindow.addActivity(currentApp.name, currentApp.title);
 	}
 
 	simulateAppSwitch() {
@@ -387,157 +347,10 @@ export class FocusTracker {
 		console.log(`Switched to: ${app.name} (${app.category}) - ${app.context}`);
 	}
 
-	getKeystrokeRate(category: string): number {
-		const baseRates: Record<string, number> = {
-			productive: 15 + Math.floor(Math.random() * 25), // 15-40 per interval
-			neutral: 5 + Math.floor(Math.random() * 15), // 5-20 per interval
-			distracting: 2 + Math.floor(Math.random() * 8), // 2-10 per interval
-		};
-
-		return baseRates[category] || 10;
-	}
-
-	async trackEngagementOnly() {
-		// Only track engagement metrics (keystrokes, mouse movements) continuously
-		// Context metadata is collected only on actual changes
-		const keystrokes = this.consumeKeystrokes();
-		const mouseMovements = this.consumeMouseMovements();
-
-		// Debug logging for keystroke tracking
-		if (keystrokes > 0) {
-			console.log(`🔑 Consumed ${keystrokes} keystrokes from tracking`);
-		}
-
-		// Update engagement data in current window
-		if (keystrokes > 0 || mouseMovements > 0) {
-			this.currentWindow.addActivity(
-				this.lastActiveApp || "Unknown App",
-				this.lastWindowTitle || "Unknown Window",
-				keystrokes,
-				this.lastUrl || "",
-				mouseMovements
-			);
-		}
-	}
-
 	triggerContextAnalysis() {
 		// Trigger AI reasoning for context analysis when context changes
 		console.log("🧠 Triggering AI context analysis for new context");
 		// This will be handled by the FocusAI system when it processes the new context
-	}
-
-	async initKeyHook() {
-		try {
-			console.log("Attempting to initialize global keystroke tracking...");
-			console.log("Current context:", typeof process, process.platform);
-
-			// Check if we're in the main process
-			if (!process || process.type === "renderer") {
-				throw new Error("Not running in main process");
-			}
-
-			// Dynamically import uiohook-napi for global keystroke tracking
-			const { uIOhook } = await import("uiohook-napi");
-			this.iohook = uIOhook;
-
-			this.keystrokesSinceLastTick = 0;
-			this.mouseMovementsSinceLastTick = 0;
-
-			// Set up global keyboard event listener
-			this.iohook.on("keydown", () => {
-				this.keystrokesSinceLastTick++;
-				if (this.keystrokesSinceLastTick % 10 === 0) {
-					console.log(`✓ Global keypress detected: ${this.keystrokesSinceLastTick} total`);
-				}
-			});
-
-			// Set up global mouse movement listener
-			this.iohook.on("mousemove", (event: any) => {
-				const dx = Math.abs(event.x - this.lastMouseX);
-				const dy = Math.abs(event.y - this.lastMouseY);
-
-				// Only count significant movements (> 5 pixels)
-				if (dx > 5 || dy > 5) {
-					this.mouseMovementsSinceLastTick++;
-					this.lastMouseX = event.x;
-					this.lastMouseY = event.y;
-				}
-			});
-
-			// Start the global hook
-			this.iohook.start();
-
-			console.log("✅ Global keystroke tracking initialized successfully");
-			console.log("  Note: This tracks keystrokes system-wide, even when app is minimized");
-			console.log("  Note: macOS requires accessibility permissions for this to work");
-		} catch (e: any) {
-			this.iohook = null;
-			console.error("✗ Global key hook failed to start:", e.message);
-			console.warn("  Keystroke tracking will only work when app is in focus");
-			console.warn("  To enable global keystroke tracking:");
-			console.warn("  1. Grant accessibility permissions to the app in System Preferences (macOS)");
-			console.warn("  2. Restart the application");
-
-			// Check if this is a permission issue and provide guidance
-			this.checkAccessibilityPermissions();
-		}
-	}
-
-	async checkAccessibilityPermissions() {
-		try {
-			if (process.platform === "darwin") {
-				console.log("🔍 Checking macOS accessibility permissions...");
-
-				// Try to open System Preferences to accessibility settings
-				const { exec } = require("child_process");
-				exec(
-					'open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"',
-					(error: any) => {
-						if (error) {
-							console.log("💡 To enable keystroke tracking:");
-							console.log("   1. Open System Preferences > Security & Privacy > Privacy > Accessibility");
-							console.log("   2. Add this app to the list and enable it");
-							console.log("   3. Restart the application");
-						} else {
-							console.log(
-								"💡 System Preferences opened - please grant accessibility permissions to this app"
-							);
-						}
-					}
-				);
-			}
-		} catch (e) {
-			console.log("💡 Manual steps to enable keystroke tracking:");
-			console.log("   1. Open System Preferences > Security & Privacy > Privacy > Accessibility");
-			console.log("   2. Add this app to the list and enable it");
-			console.log("   3. Restart the application");
-		}
-	}
-
-	disposeKeyHook() {
-		try {
-			if (this.iohook) {
-				this.iohook.removeAllListeners("keydown");
-				this.iohook.removeAllListeners("mousemove");
-				this.iohook.stop();
-				this.iohook = null;
-				console.log("✓ Global key hook stopped");
-			}
-		} catch (e: any) {
-			console.error("Error stopping global key hook:", e.message);
-		}
-	}
-
-	consumeKeystrokes(): number {
-		const count = this.keystrokesSinceLastTick;
-		this.keystrokesSinceLastTick = 0;
-		return count;
-	}
-
-	consumeMouseMovements(): number {
-		const count = this.mouseMovementsSinceLastTick;
-		this.mouseMovementsSinceLastTick = 0;
-		return count;
 	}
 
 	getSessionDuration(): number {
@@ -694,15 +507,16 @@ Write-Output "$appName|$title|$url"
 		console.log("Completed 3-minute window:", {
 			app: summary.activeApp,
 			switches: summary.appSwitches,
-			keystrokes: summary.keystrokeCount,
 			focusRatio: Math.round(summary.focusRatio * 100) + "%",
 			pattern: summary.context.switchingPattern,
 		});
 	}
 
 	startNewWindow() {
-		this.currentWindow = new ActivityWindow();
-		console.log("Started new 3-minute activity window");
+		// Optionally randomize duration for each new window
+		this.windowDurationMinutes = 3 + Math.random() * 2;
+		this.currentWindow = new ActivityWindow(this.windowDurationMinutes);
+		console.log(`Started new ${this.windowDurationMinutes.toFixed(1)}-minute activity window`);
 	}
 
 	getCurrentMetrics() {
