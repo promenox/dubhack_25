@@ -312,8 +312,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 			{/* Premium Sidebar */}
 			<div className="sidebar">
 				<div className="logo">
-					<div className="logo-icon">🧠</div>
-					<div className="logo-text">FocusAI</div>
+					<div className="logo-icon">
+						<img src="/focal-ai-icon.png" alt="FocalAI" className="logo-img" />
+					</div>
 				</div>
 
 				<nav className="nav">

@@ -155,7 +155,7 @@ const Auth = ({ onAuthSuccess }: AuthProps) => {
 	return (
 		<div className="auth-container">
 			<div className="auth-box">
-				<h1 className="auth-title">Focal</h1>
+				<h1 className="auth-title">FocalAI</h1>
 				<p className="auth-subtitle">Focus tracking and productivity</p>
 
 				{error && <div className="auth-error">{error}</div>}

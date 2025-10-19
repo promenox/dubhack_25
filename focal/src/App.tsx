@@ -52,22 +52,7 @@ function App() {
 
 	// Loading screen while checking session
 	if (isLoading) {
-		return (
-			<div
-				style={{
-					display: "flex",
-					justifyContent: "center",
-					alignItems: "center",
-					height: "100vh",
-					background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-					color: "white",
-					fontSize: "24px",
-					fontWeight: 600,
-				}}
-			>
-				Loading Focal...
-			</div>
-		);
+		return null;
 	}
 
 	// Show auth screen if not authenticated

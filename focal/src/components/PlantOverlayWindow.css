@@ -54,3 +54,57 @@ body {
 	object-fit: contain;
 	filter: drop-shadow(0 12px 24px rgba(89, 220, 178, 0.25));
 }
+
+.plant-overlay-panel {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 12px 14px 16px;
+	border-radius: 14px;
+	box-sizing: border-box;
+	min-width: 200px;
+}
+
+.plant-overlay-backdrop {
+	position: absolute;
+	inset: 0;
+	border-radius: 14px;
+	background: rgba(0, 0, 0, 0.06);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+	backdrop-filter: blur(2px);
+	-webkit-backdrop-filter: blur(2px);
+	pointer-events: none;
+}
+
+.plant-overlay-progress {
+	width: 100%;
+	margin-top: 10px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+\tgap: 6px;
+}
+
+.plant-overlay-progress__bar {
+	width: 160px;
+	height: 6px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.12);
+	overflow: hidden;
+}
+
+.plant-overlay-progress__fill {
+	height: 100%;
+	background: linear-gradient(90deg, #5adcb2, #36c1ff);
+	border-radius: inherit;
+	transition: width 160ms ease;
+}
+
+.plant-overlay-progress__label {
+	font-size: 12px;
+	line-height: 1;
+	color: rgba(255, 255, 255, 0.85);
+	text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+}

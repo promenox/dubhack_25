@@ -21,6 +21,7 @@ export const useGardenGame = () => {
 	const [isReady, setIsReady] = useState(false);
 	const [error, setError] = useState<GameError | null>(null);
 	const [multiplier, setMultiplier] = useState(1);
+	const [sessionActive, setSessionActive] = useState(false);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -51,7 +52,7 @@ export const useGardenGame = () => {
 	}, []);
 
 	useEffect(() => {
-		if (!isReady || !gameRef.current) return;
+		if (!isReady || !gameRef.current || !sessionActive) return;
 		const interval = window.setInterval(() => {
 			// Don't override multiplier here - it's controlled by productivity score
 			gameRef.current?.tick(1).catch((err) => console.error("Tick failed", err));
@@ -60,7 +61,38 @@ export const useGardenGame = () => {
 		return () => {
 			window.clearInterval(interval);
 		};
-	}, [isReady]);
+	}, [isReady, sessionActive]);
+
+	// Track session status from main process to pause/resume growth ticks
+	useEffect(() => {
+		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
+		if (!ipcRenderer) return;
+
+		const handleStarted = (_e: any, _data: { startTime: number }) => {
+			setSessionActive(true);
+		};
+		const handleStopped = () => {
+			setSessionActive(false);
+		};
+
+		ipcRenderer.on("session-started", handleStarted);
+		ipcRenderer.on("session-stopped", handleStopped);
+
+		// Fetch initial status
+		ipcRenderer
+			.invoke("get-session-status")
+			.then((status: any) => {
+				if (status && typeof status.active === "boolean") {
+					setSessionActive(!!status.active);
+				}
+			})
+			.catch(() => {});
+
+		return () => {
+			ipcRenderer.removeListener("session-started", handleStarted);
+			ipcRenderer.removeListener("session-stopped", handleStopped);
+		};
+	}, []);
 
 	const dispatch = async (action: GameAction) => {
 		if (!gameRef.current) return;

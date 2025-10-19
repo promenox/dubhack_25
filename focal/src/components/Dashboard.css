@@ -559,6 +559,32 @@ body::-webkit-scrollbar {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
+/* Override emoji in logo when using image */
+.logo-icon::before {
+  content: none;
+}
+
+/* Sidebar logo image sizing */
+.logo-img {
+  width: 200px;
+  height: 80px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Sidebar logo: image-only, remove container styling */
+.logo-icon {
+  width: auto;
+  height: auto;
+  background: none;
+  border: none;
+  border-radius: 0;
+  margin-right: 0;
+  box-shadow: none;
+  padding: 0;
+  overflow: visible;
+}
+
 .logo-text {
   font-size: 28px;
   font-weight: 800;

@@ -110,8 +110,8 @@ class MainApp {
 
 		const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 		console.log("📏 Screen dimensions:", { width, height });
-		const overlayWidth = 380;
-		const overlayHeight = 160;
+		const overlayWidth = 480;
+		const overlayHeight = 220;
 		const x = Math.round((width - overlayWidth) / 2);
 		const y = 20;
 		console.log("📍 Overlay position:", { x, y, overlayWidth, overlayHeight });
@@ -123,15 +123,15 @@ class MainApp {
 		const overlayConfig: Electron.BrowserWindowConstructorOptions = {
 			width: overlayWidth,
 			height: overlayHeight,
-			minWidth: 300,
-			minHeight: 120,
-			maxWidth: 600,
-			maxHeight: 400,
+			minWidth: 320,
+			minHeight: 140,
+			maxWidth: 900,
+			maxHeight: 600,
 			x,
 			y,
 			frame: false,
 			transparent: true,
-			resizable: !isWindows,
+			resizable: true,
 			movable: true,
 			alwaysOnTop: true,
 			skipTaskbar: true,
@@ -182,13 +182,7 @@ class MainApp {
 			baseOverlaySize.height = createdHeight;
 		}
 
-		const enforceOverlaySize = () => {
-			if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
-			const [currentWidth, currentHeight] = this.overlayWindow.getSize();
-			if (currentWidth !== baseOverlaySize.width || currentHeight !== baseOverlaySize.height) {
-				this.overlayWindow.setSize(baseOverlaySize.width, baseOverlaySize.height, false);
-			}
-		};
+		// Allow free resizing; no enforcement
 
 		// Platform-specific window behavior
 		if (isMac) {
@@ -212,12 +206,7 @@ class MainApp {
 			}
 			overlayWindow.setHasShadow(false);
 			overlayWindow.setBackgroundColor("#00000000");
-			overlayWindow.setResizable(false);
-			overlayWindow.on("will-resize", (event) => {
-				event.preventDefault();
-				enforceOverlaySize();
-			});
-			overlayWindow.on("resize", enforceOverlaySize);
+			overlayWindow.setResizable(true);
 		}
 
 		if (VITE_DEV_SERVER_URL) {
@@ -233,7 +222,6 @@ class MainApp {
 			if (isWindows) {
 				console.log("🪟 Setting Windows-specific overlay properties...");
 				overlayWindow.setBackgroundColor("#00000000");
-				enforceOverlaySize();
 			}
 			console.log("📏 Overlay window bounds:", this.overlayWindow?.getBounds());
 			console.log("👁️ Showing overlay window (ready-to-show)...");
@@ -263,6 +251,35 @@ class MainApp {
 		this.overlayWindow.webContents.on("before-input-event", (_event, input) => {
 			if (input.type === "mouseDown") {
 				this.overlayWindow?.setIgnoreMouseEvents(false);
+			}
+		});
+
+		// IPC: support resizing from renderer (frameless custom handles)
+		ipcMain.handle("overlay-get-bounds", () => {
+			if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+				try {
+					return this.overlayWindow.getBounds();
+				} catch (_err) {
+					return null;
+				}
+			}
+			return null;
+		});
+
+		ipcMain.on("overlay-resize-to", (_e, bounds: { x?: number; y?: number; width: number; height: number }) => {
+			if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+				try {
+					const current = this.overlayWindow.getBounds();
+					const newBounds = {
+						x: bounds.x ?? current.x,
+						y: bounds.y ?? current.y,
+						width: Math.max(overlayConfig.minWidth!, Math.min(bounds.width, overlayConfig.maxWidth!)),
+						height: Math.max(overlayConfig.minHeight!, Math.min(bounds.height, overlayConfig.maxHeight!)),
+					};
+					this.overlayWindow.setBounds(newBounds, true);
+				} catch (_err) {
+					// best-effort
+				}
 			}
 		});
 	}
@@ -690,6 +707,13 @@ class MainApp {
 			console.log("📡 Starting tracking updates...");
 			this.startTracking();
 
+			// Notify renderer windows about session start
+			try {
+				this.mainWindow?.webContents.send("session-started", { startTime: this.sessionStartTime });
+			} catch (_err) {
+				// best-effort
+			}
+
 			// Send initial focus update immediately
 			this.sendImmediateFocusUpdate();
 
@@ -723,7 +747,19 @@ class MainApp {
 				this.stopTracking();
 				this.hideOverlay();
 				this.stopScorePersistence();
+
+				// Notify renderer windows about session stop
+				try {
+					this.mainWindow?.webContents.send("session-stopped");
+				} catch (_err) {
+					// best-effort
+				}
 			}
+		});
+
+		// Allow renderer to query current session status
+		ipcMain.handle("get-session-status", () => {
+			return { active: this.sessionActive, startTime: this.sessionStartTime };
 		});
 
 		// Permission checks removed - no longer needed without keystroke tracking

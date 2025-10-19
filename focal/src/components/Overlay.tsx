@@ -16,7 +16,7 @@ const Overlay = () => {
 	const [aiInsight, setAiInsight] = useState<string>("—");
 	const [context, setContext] = useState<string>("—");
 	const [startTime, setStartTime] = useState<number | null>(null);
-	const [timer, setTimer] = useState<NodeJS.Timeout | null>(null);
+	const timerRef = useRef<number | null>(null);
 	const [isDragging, setIsDragging] = useState<boolean>(false);
 	const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 	const overlayRef = useRef<HTMLDivElement>(null);
@@ -37,17 +37,21 @@ const Overlay = () => {
 		console.log("🚀 Overlay: Starting session with timestamp:", ts);
 		const timestamp = ts || Date.now();
 		setStartTime(timestamp);
-
-		if (timer) clearInterval(timer);
-		const newTimer = setInterval(render, 1000);
-		setTimer(newTimer);
+		if (timerRef.current) {
+			clearInterval(timerRef.current);
+			timerRef.current = null;
+		}
+		// Use window.setInterval ID as number for refs compatibility
+		timerRef.current = window.setInterval(render, 1000);
 		console.log("✅ Overlay: Session started, timer set");
 	};
 
 	const stop = () => {
 		console.log("🛑 Overlay: Stopping session");
-		if (timer) clearInterval(timer);
-		setTimer(null);
+		if (timerRef.current) {
+			clearInterval(timerRef.current);
+			timerRef.current = null;
+		}
 		setStartTime(null);
 		setTime("00:00:00");
 		setTitle("—");
@@ -170,12 +174,86 @@ const Overlay = () => {
 		ipcRenderer.on("focus-update", handleFocusUpdate);
 
 		return () => {
-			if (timer) clearInterval(timer);
+			if (timerRef.current) {
+				clearInterval(timerRef.current);
+				timerRef.current = null;
+			}
 			ipcRenderer.removeListener("session-started", handleSessionStarted);
 			ipcRenderer.removeListener("session-stopped", handleSessionStopped);
 			ipcRenderer.removeListener("focus-update", handleFocusUpdate);
 		};
-	}, [timer]);
+	}, []);
+
+	// Resize handles
+	const [isResizing, setIsResizing] = useState<boolean>(false);
+	const resizeEdgeRef = useRef<null | "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw">(null);
+	const resizeStartRef = useRef<{
+		mouseX: number;
+		mouseY: number;
+		bounds: { x: number; y: number; width: number; height: number };
+	} | null>(null);
+
+	const beginResize = async (edge: "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw", e: React.MouseEvent) => {
+		e.stopPropagation();
+		e.preventDefault();
+		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
+		if (!ipcRenderer) return;
+		try {
+			const bounds = await ipcRenderer.invoke("overlay-get-bounds");
+			if (!bounds) return;
+			resizeEdgeRef.current = edge;
+			resizeStartRef.current = { mouseX: e.screenX, mouseY: e.screenY, bounds };
+			setIsResizing(true);
+		} catch (_err) {
+			// best-effort
+		}
+	};
+
+	useEffect(() => {
+		if (!isResizing) return;
+		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
+		if (!ipcRenderer) return;
+
+		const onMove = (ev: MouseEvent) => {
+			const edge = resizeEdgeRef.current;
+			const start = resizeStartRef.current;
+			if (!edge || !start) return;
+			const dx = ev.screenX - start.mouseX;
+			const dy = ev.screenY - start.mouseY;
+			let { x, y, width, height } = start.bounds;
+
+			if (edge.includes("e")) {
+				width = start.bounds.width + dx;
+			}
+			if (edge.includes("s")) {
+				height = start.bounds.height + dy;
+			}
+			if (edge.includes("w")) {
+				width = start.bounds.width - dx;
+				x = start.bounds.x + dx;
+			}
+			if (edge.includes("n")) {
+				height = start.bounds.height - dy;
+				y = start.bounds.y + dy;
+			}
+			ipcRenderer.send("overlay-resize-to", { x, y, width, height });
+		};
+
+		const onUp = () => {
+			setIsResizing(false);
+			resizeEdgeRef.current = null;
+			resizeStartRef.current = null;
+			document.removeEventListener("mousemove", onMove);
+			document.removeEventListener("mouseup", onUp);
+		};
+
+		document.addEventListener("mousemove", onMove);
+		document.addEventListener("mouseup", onUp);
+		return () => {
+			document.removeEventListener("mousemove", onMove);
+			document.removeEventListener("mouseup", onUp);
+		};
+	}, [isResizing]);
 
 	return (
 		<div
@@ -186,6 +264,15 @@ const Overlay = () => {
 			onMouseDown={handleMouseDown}
 			style={{ cursor: isDragging ? "grabbing" : "grab" }}
 		>
+			{/* Resize handles */}
+			<div className="overlay-resize-handle handle-n" onMouseDown={(e) => beginResize("n", e)} />
+			<div className="overlay-resize-handle handle-s" onMouseDown={(e) => beginResize("s", e)} />
+			<div className="overlay-resize-handle handle-e" onMouseDown={(e) => beginResize("e", e)} />
+			<div className="overlay-resize-handle handle-w" onMouseDown={(e) => beginResize("w", e)} />
+			<div className="overlay-resize-handle handle-ne" onMouseDown={(e) => beginResize("ne", e)} />
+			<div className="overlay-resize-handle handle-nw" onMouseDown={(e) => beginResize("nw", e)} />
+			<div className="overlay-resize-handle handle-se" onMouseDown={(e) => beginResize("se", e)} />
+			<div className="overlay-resize-handle handle-sw" onMouseDown={(e) => beginResize("sw", e)} />
 			<div className="overlay-header">
 				<div className="overlay-time">{time}</div>
 			</div>

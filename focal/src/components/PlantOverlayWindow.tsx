@@ -1,10 +1,10 @@
+import type { IpcRenderer, IpcRendererEvent } from "electron";
 import { useCallback, useEffect, useState } from "react";
 import { getPlantIconSrc } from "../assets/plantIcons";
 import { getSeedLibrary } from "../core/gardenGame";
 import type { Plant, PlantType } from "../core/index";
 import { PlantVisual, getStageLabel } from "./garden/PlantVisual";
 import "./PlantOverlayWindow.css";
-import type { IpcRenderer, IpcRendererEvent } from "electron";
 
 interface PlantData {
 	plantId: string;
@@ -89,12 +89,12 @@ const PlantOverlayWindow = () => {
 
 	const plant: Plant | null = plantData
 		? {
-			id: plantData.plantId,
-			type: plantData.plantType,
-			plantedAt: plantData.plantedAt,
-			growthDuration: plantData.growthDuration,
-			progress: plantData.progress,
-		}
+				id: plantData.plantId,
+				type: plantData.plantType,
+				plantedAt: plantData.plantedAt,
+				growthDuration: plantData.growthDuration,
+				progress: plantData.progress,
+		  }
 		: null;
 
 	const seedLibrary = getSeedLibrary();
@@ -102,17 +102,34 @@ const PlantOverlayWindow = () => {
 	const iconSrc = definition ? getPlantIconSrc(definition.icon) : undefined;
 	const stageLabel = plant ? getStageLabel(plant) : "";
 
+	const percent = plant ? Math.round(Math.min(Math.max(plant.progress, 0), 1) * 100) : 0;
+
 	return (
-		<div className="plant-overlay-root" onMouseDown={handleMouseDown} style={{ cursor: isDragging ? "grabbing" : "grab" }}>
-			{plant ? (
-				<PlantVisual
-					plant={plant}
-					stageLabel={stageLabel}
-					iconSrc={iconSrc}
-					displayName={definition?.displayName}
-					className="plant-overlay-plant"
-				/>
-			) : null}
+		<div
+			className="plant-overlay-root"
+			onMouseDown={handleMouseDown}
+			style={{ cursor: isDragging ? "grabbing" : "grab" }}
+		>
+			<div className="plant-overlay-panel">
+				<div className="plant-overlay-backdrop" />
+				{plant ? (
+					<>
+						<PlantVisual
+							plant={plant}
+							stageLabel={stageLabel}
+							iconSrc={iconSrc}
+							displayName={definition?.displayName}
+							className="plant-overlay-plant"
+						/>
+						<div className="plant-overlay-progress">
+							<div className="plant-overlay-progress__bar">
+								<div className="plant-overlay-progress__fill" style={{ width: `${percent}%` }} />
+							</div>
+							<div className="plant-overlay-progress__label">{percent}% grown</div>
+						</div>
+					</>
+				) : null}
+			</div>
 		</div>
 	);
 };

@@ -177,18 +177,17 @@ const Garden = () => {
 		});
 	}, [state, overlayPlotId]);
 
-	// Listen to focus updates and adjust growth multiplier based on productivity score
+	// Listen to focus updates and adjust growth multiplier based on instantaneous productivity score
 	useEffect(() => {
 		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
 		if (!ipcRenderer) return;
 
 		const handleFocusUpdate = (_event: any, data: any) => {
-			if (data && typeof data.cumulative === "number") {
-				// Convert cumulative score (0-1000) to growth multiplier (0.5x-3x)
-				// Formula: multiplier = 0.5 + (score / 1000) * 2.5
-				// 0 score = 0.5x, 200 score = 1.0x, 500 score = 1.75x, 1000 score = 3.0x
-				const score = Math.max(0, Math.min(1000, data.cumulative)); // Clamp between 0-1000
-				const newMultiplier = 0.5 + (score / 1000) * 2.5;
+			if (data && typeof data.instantaneous === "number") {
+				// Map instantaneous score (0-100) to 0.8x–3.0x to avoid overly slow growth
+				// Formula: multiplier = 0.8 + (instantaneous / 100) * 2.2
+				const inst = Math.max(0, Math.min(100, data.instantaneous));
+				const newMultiplier = 0.8 + (inst / 100) * 2.2;
 
 				// Only update if multiplier has changed significantly (avoid unnecessary updates)
 				const currentMult = multiplier;
@@ -196,24 +195,24 @@ const Garden = () => {
 					console.log(
 						`[Garden] Updating growth multiplier: ${currentMult.toFixed(2)}x → ${newMultiplier.toFixed(
 							2
-						)}x (score: ${score.toFixed(1)})`
+						)}x (inst: ${inst.toFixed(1)})`
 					);
 					dispatch({ type: "setMultiplier", value: newMultiplier });
 				}
 			}
 		};
 
-		// Fetch initial focus score on mount
+		// Fetch initial focus score on mount (use instantaneous)
 		ipcRenderer
 			.invoke("get-focus-score")
 			.then((focusScore: any) => {
-				if (focusScore && typeof focusScore.cumulative === "number") {
-					const score = Math.max(0, Math.min(1000, focusScore.cumulative));
-					const initialMultiplier = 0.5 + (score / 1000) * 2.5;
+				if (focusScore && typeof focusScore.instantaneous === "number") {
+					const inst = Math.max(0, Math.min(100, focusScore.instantaneous));
+					const initialMultiplier = 0.8 + (inst / 100) * 2.2;
 					console.log(
 						`[Garden] Setting initial growth multiplier: ${initialMultiplier.toFixed(
 							2
-						)}x (score: ${score.toFixed(1)})`
+						)}x (inst: ${inst.toFixed(1)})`
 					);
 					dispatch({ type: "setMultiplier", value: initialMultiplier });
 				}
