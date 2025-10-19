@@ -75,7 +75,8 @@ button:not(:disabled):active {
   align-items: center;
   background: var(--bg-primary);
   position: relative;
-  padding-bottom: calc(var(--toolbar-height) + 2.5rem);
+  /* Reserve enough space below so content sits ~4-8px higher above the toolbar */
+  padding-bottom: calc(var(--toolbar-height) + 0.75rem);
 }
 
 .app {
@@ -198,12 +199,14 @@ button:not(:disabled):active {
 .inventory-toolbar {
   position: fixed;
   left: 50%;
-  bottom: 1.25rem;
+  /* Hug the bottom edge to free space above for the garden */
+  bottom: 0;
   transform: translateX(-50%);
   width: min(1220px, calc(100% - 3rem));
   background: rgba(17, 22, 26, 0.9);
   border: 1px solid var(--border-subtle);
-  border-radius: 1rem;
+  /* Square bottom corners for a sleeker docked toolbar look */
+  border-radius: 1rem 1rem 0 0;
   padding: 0.65rem 1.15rem 0.75rem;
   display: flex;
   align-items: center;
@@ -217,18 +220,18 @@ button:not(:disabled):active {
 }
 
 .inventory-toolbar__coins {
-  position: absolute;
-  top: 0.55rem;
-  left: 1.05rem;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.3rem 0.55rem;
-  background: none;
-  border: none
+  padding: 0.3rem 0.8rem;
+  border-radius: 0.8rem;
+  border: 1px solid var(--border-subtle);
+  background: rgba(89, 220, 178, 0.12);
+  box-shadow: 0 12px 24px rgba(6, 12, 14, 0.35);
 }
 
-.inventory-toolbar__coin-icon {
+.inventory-toolbar__coin-icon,
+.coin-icon {
   width: 0.85rem;
   height: 0.85rem;
   border-radius: 50%;
@@ -249,7 +252,7 @@ button:not(:disabled):active {
   display: flex;
   align-items: center;
   gap: 1.1rem;
-  padding-left: 3.4rem;
+  padding-left: 0;
 }
 
 .inventory-toolbar__seeds {
@@ -260,8 +263,21 @@ button:not(:disabled):active {
   overflow-x: auto;
   /* Allow hover lift and shadows above the rail */
   overflow-y: visible;
-  padding: 0 0.25rem;
+  padding: 0.1rem 0.25rem;
   scrollbar-width: none;
+  position: relative;
+  -webkit-mask-image: linear-gradient(to right,
+      transparent 0,
+      rgba(0, 0, 0, 1) 28px,
+      rgba(0, 0, 0, 1) calc(100% - 28px),
+      transparent 100%);
+  mask-image: linear-gradient(to right,
+      transparent 0,
+      rgba(0, 0, 0, 1) 28px,
+      rgba(0, 0, 0, 1) calc(100% - 28px),
+      transparent 100%);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
 }
 
 .inventory-toolbar__seeds::-webkit-scrollbar {
@@ -324,6 +340,8 @@ button:not(:disabled):active {
 }
 
 .inventory-toolbar__side {
+  --inventory-shop-width: 184px;
+  --inventory-shop-height: 44px;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
@@ -331,8 +349,23 @@ button:not(:disabled):active {
 }
 
 .inventory-toolbar__shop {
-  min-width: 160px;
+  width: var(--inventory-shop-width);
+  min-width: var(--inventory-shop-width);
   padding: 0.5rem 1.3rem;
+  min-height: var(--inventory-shop-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inventory-toolbar__status {
+  /* Use grid so both children (multiplier + coins) naturally share the same row height */
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+  gap: 0.4rem;
+  width: var(--inventory-shop-width);
+  min-width: var(--inventory-shop-width);
 }
 
 .inventory-toolbar__multiplier {
@@ -342,6 +375,21 @@ button:not(:disabled):active {
   font-variant-numeric: tabular-nums;
   color: var(--accent-strong);
   gap: 0.15rem;
+}
+
+.inventory-toolbar__coins {
+  width: calc(var(--inventory-shop-width) / 2);
+  min-width: calc(var(--inventory-shop-width) / 2);
+  min-height: 0;
+  height: 100%;
+  /* Fill the grid row height and center contents */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Remove vertical padding so the background matches the full height */
+  padding-block: 0;
+  padding-inline: 0.8rem;
+  box-sizing: border-box;
 }
 
 .inventory-toolbar__multiplier span {
@@ -402,7 +450,8 @@ button:not(:disabled):active {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: 0.6rem 1.15rem 1rem;
+  /* Balance vertical padding top/bottom for a consistent frame */
+  padding: 0.8rem 1.15rem 0.8rem;
   gap: 0.4rem;
 }
 
@@ -549,6 +598,51 @@ button:not(:disabled):active {
   align-items: flex-end;
   justify-content: center;
   transition: transform 0.5s ease;
+}
+
+.plot-plant__reveal {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  transition: clip-path 0.6s ease;
+  will-change: clip-path;
+  position: relative;
+}
+
+.plot-plant__reveal--illustrated {
+  align-items: center;
+}
+
+.plot-plant--illustrated {
+  align-items: center;
+  justify-content: center;
+}
+
+.plot-plant--illustrated.plot-plant--growing,
+.plot-plant--illustrated.plot-plant--harvest-ready {
+  animation: none;
+}
+
+.plot-plant__image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 22px 38px rgba(126, 245, 201, 0.2));
+  transition: transform 0.6s ease;
+}
+
+.plot-plant__glow {
+  position: absolute;
+  inset: -25%;
+  background: radial-gradient(circle, rgba(126, 245, 201, 0.45) 0%, rgba(126, 245, 201, 0.12) 45%, rgba(126, 245, 201, 0) 72%);
+  filter: blur(18px);
+  opacity: 0.85;
+  pointer-events: none;
+  transition: opacity 0.6s ease, transform 0.6s ease;
 }
 
 .plot-plant--growing {
@@ -724,21 +818,48 @@ button:not(:disabled):active {
   gap: 0.35rem;
   position: sticky;
   top: 0;
+  /* Make header fully opaque and extend it to the container edges so
+     the scrolling list content cannot bleed through above it. */
   background: var(--bg-surface);
-  padding-bottom: 0.85rem;
-  padding-right: 3rem;
+  /* Pull the header out to the container edges (counter the parent padding). */
+  margin-top: -1.35rem;
+  margin-left: -1.35rem;
+  margin-right: -1.35rem;
+  padding: 1.35rem 3rem 1rem 1.35rem;
   border-bottom: 1px solid var(--border-subtle);
-  z-index: 1;
-  box-shadow: 0 12px 24px rgba(6, 12, 14, 0.35);
+  /* Ensure it stays above the scrolling list */
+  z-index: 5;
+  /* Let the parent panel control the rounded corners. Making the header square
+     avoids transparent corner wedges where content could show through. */
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  box-shadow: 0 18px 32px rgba(6, 12, 14, 0.45);
+}
+
+/* Cover the rounded top corners with an opaque layer tied to the header so
+  scrolled content cannot appear in the curved wedges above the header. */
+.seed-shop header::before {
+  content: '';
+  position: absolute;
+  /* Extend above and to the sides to the panel’s padding edges */
+  top: -1.35rem;
+  left: -1.35rem;
+  right: -1.35rem;
+  bottom: 0;
+  background: var(--bg-surface);
+  border-top-left-radius: 1.5rem;
+  border-top-right-radius: 1.5rem;
+  /* Sit behind header content but above the scrolling list */
+  z-index: -1;
 }
 
 .seed-shop__close {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 1.35rem;
+  right: 1.35rem;
   background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--accent-strong);
+  border: 1px solid var(--danger);
+  color: var(--danger);
   padding: 0.4rem 0.85rem;
   border-radius: 0.6rem;
   font-size: 0.85rem;
@@ -746,11 +867,19 @@ button:not(:disabled):active {
 }
 
 .seed-shop__close:hover {
-  background: var(--accent-soft);
-  color: var(--text-primary);
-  border-color: var(--border-color);
+  background: rgba(248, 113, 113, 0.14);
+  /* soft red fill */
+  color: var(--danger);
+  border-color: var(--danger);
   transform: none;
   box-shadow: none;
+}
+
+/* Prevent global active shadow/lift on this button */
+.seed-shop__close:active {
+  transform: none;
+  box-shadow: none;
+  background: rgba(248, 113, 113, 0.22);
 }
 
 .seed-shop__list {
@@ -823,6 +952,22 @@ button:not(:disabled):active {
 
 .seed-card footer button {
   min-width: 96px;
+}
+
+/* Compact buy button with coin icon + amount */
+.seed-card__buy {
+  min-width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+}
+
+.seed-card__buy .coin-amount {
+  font-weight: 700;
+  color: #052418;
+  /* ensure readable on accent background */
+  font-variant-numeric: tabular-nums;
 }
 
 .decorations-panel__list {

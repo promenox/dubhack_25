@@ -1,4 +1,4 @@
-export type PlantType = 'seedling' | 'blossom' | 'evergreen';
+export type PlantType = 'seedling' | 'blossom' | 'evergreen' | 'rose' | 'lavender';
 
 export interface Plant {
   id: string;
@@ -35,7 +35,9 @@ export const createInitialGardenState = (): GardenState => ({
     seeds: {
       seedling: 3,
       blossom: 1,
-      evergreen: 0
+      evergreen: 0,
+      rose: 0,
+      lavender: 0
     },
     decorations: []
   },

@@ -12,6 +12,7 @@ export interface SeedDefinition {
   growthDuration: number; // seconds
   harvestReward: number;
   seedCost: number;
+  icon: string;
 }
 
 export const SEED_LIBRARY: Record<PlantType, SeedDefinition> = {
@@ -21,7 +22,8 @@ export const SEED_LIBRARY: Record<PlantType, SeedDefinition> = {
     description: 'Quick-growing beginner plant.',
     growthDuration: 60,
     harvestReward: 5,
-    seedCost: 2
+    seedCost: 2,
+    icon: 'seedling.svg'
   },
   blossom: {
     type: 'blossom',
@@ -29,7 +31,8 @@ export const SEED_LIBRARY: Record<PlantType, SeedDefinition> = {
     description: 'Balanced growth and reward.',
     growthDuration: 180,
     harvestReward: 14,
-    seedCost: 6
+    seedCost: 6,
+    icon: 'blossom.svg'
   },
   evergreen: {
     type: 'evergreen',
@@ -37,7 +40,26 @@ export const SEED_LIBRARY: Record<PlantType, SeedDefinition> = {
     description: 'Slow grower with generous harvest.',
     growthDuration: 420,
     harvestReward: 30,
-    seedCost: 12
+    seedCost: 12,
+    icon: 'evergreen.svg'
+  },
+  rose: {
+    type: 'rose',
+    displayName: 'Crimson Rose',
+    description: 'Short bloom with a bold harvest bonus.',
+    growthDuration: 240,
+    harvestReward: 22,
+    seedCost: 10,
+    icon: 'rose.svg'
+  },
+  lavender: {
+    type: 'lavender',
+    displayName: 'Moonlit Lavender',
+    description: 'A calming mid-length grower with steady returns.',
+    growthDuration: 300,
+    harvestReward: 24,
+    seedCost: 11,
+    icon: 'lavender.svg'
   }
 };
 

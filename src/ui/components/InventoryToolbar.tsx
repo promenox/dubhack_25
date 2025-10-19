@@ -46,11 +46,6 @@ export const InventoryToolbar = ({
 
   return (
     <footer className="inventory-toolbar" aria-label="Inventory toolbar">
-      <div className="inventory-toolbar__coins" aria-label="Garden coins">
-        <span className="inventory-toolbar__coin-icon" aria-hidden="true" />
-        <span className="inventory-toolbar__coin-amount">{currency}</span>
-      </div>
-
       <div className="inventory-toolbar__rail">
         <div className="inventory-toolbar__seeds" onWheel={handleWheel}>
           {Object.values(seeds).map((seed) => {
@@ -87,9 +82,15 @@ export const InventoryToolbar = ({
           >
             {isSeedShopOpen ? 'Close Seed Shop' : 'Open Seed Shop'}
           </button>
-          <div className="inventory-toolbar__multiplier" aria-label="Growth multiplier">
-            <span>Growth</span>
-            <strong>{multiplier.toFixed(1)}x</strong>
+          <div className="inventory-toolbar__status">
+            <div className="inventory-toolbar__coins" aria-label="Garden coins">
+              <span className="inventory-toolbar__coin-icon" aria-hidden="true" />
+              <span className="inventory-toolbar__coin-amount">{currency}</span>
+            </div>
+            <div className="inventory-toolbar__multiplier" aria-label="Growth multiplier">
+              <span>Growth</span>
+              <strong>{multiplier.toFixed(1)}x</strong>
+            </div>
           </div>
         </div>
       </div>

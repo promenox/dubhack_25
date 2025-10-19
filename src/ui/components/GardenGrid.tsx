@@ -1,6 +1,8 @@
 import type { Plot, Plant, PlantType } from '@core/index';
+import { SEED_LIBRARY } from '@core/gardenGame';
 import clsx from 'clsx';
 import { useMemo } from 'react';
+import { getPlantIconSrc } from '@ui/assets/plantIcons';
 
 const getStageLabel = (plant: Plant) => {
   if (plant.progress >= 1) return 'Ready to Harvest';
@@ -56,6 +58,8 @@ export const GardenGrid = ({
           const stageLabel = plant ? getStageLabel(plant) : 'Empty Plot';
           const percent = plant ? getProgressPercent(plant) : 0;
           const progressColor = plant ? GROWTH_COLORS[stageLabel] : 'transparent';
+          const definition = plant ? SEED_LIBRARY[plant.type] : undefined;
+          const iconSrc = definition ? getPlantIconSrc(definition.icon) : undefined;
 
           const handleDrop: React.DragEventHandler<HTMLDivElement> = (event) => {
             event.preventDefault();
@@ -87,7 +91,12 @@ export const GardenGrid = ({
 
               <div className="plot-card__body">
                 {plant ? (
-                  <PlantVisual plant={plant} stageLabel={stageLabel} />
+                  <PlantVisual
+                    plant={plant}
+                    stageLabel={stageLabel}
+                    iconSrc={iconSrc}
+                    displayName={definition?.displayName}
+                  />
                 ) : (
                   <div className="plot-card__empty">
                     <span>Drag a seed here</span>
@@ -127,16 +136,40 @@ export const GardenGrid = ({
 interface PlantVisualProps {
   plant: Plant;
   stageLabel: string;
+  iconSrc?: string;
+  displayName?: string;
 }
 
-const PlantVisual = ({ plant, stageLabel }: PlantVisualProps) => {
+const PlantVisual = ({ plant, stageLabel, iconSrc, displayName }: PlantVisualProps) => {
   const scale = 0.7 + plant.progress * 0.35;
   const swayIntensity = plant.progress >= 1 ? 'plot-plant--harvest-ready' : 'plot-plant--growing';
+  const clampedProgress = Math.min(Math.max(plant.progress, 0), 1);
+  const revealTopInset = `${(1 - clampedProgress) * 100}%`;
+  const clipPath = `inset(${revealTopInset} 0 0 0)`;
+  const stageKey = stageLabel.replace(/\s+/g, '').toLowerCase();
+  const isIllustrated = Boolean(iconSrc);
 
   return (
-    <div className={clsx('plot-plant', swayIntensity)} style={{ transform: `scale(${scale})` }}>
-      <div className={clsx('plot-plant__stem', `plot-plant__stem--${plant.type}`)} />
-      <div className={clsx('plot-plant__bloom', `plot-plant__bloom--${stageLabel.replace(/\s+/g, '').toLowerCase()}`)} />
+    <div
+      className={clsx('plot-plant', swayIntensity, { 'plot-plant--illustrated': isIllustrated })}
+      style={{ transform: `scale(${scale})` }}
+    >
+      <div
+        className={clsx('plot-plant__reveal', { 'plot-plant__reveal--illustrated': isIllustrated })}
+        style={{ clipPath }}
+      >
+        {iconSrc ? (
+          <>
+            <span className="plot-plant__glow" aria-hidden="true" />
+            <img src={iconSrc} alt={displayName ?? stageLabel} className="plot-plant__image" />
+          </>
+        ) : (
+          <>
+            <div className={clsx('plot-plant__stem', `plot-plant__stem--${plant.type}`)} />
+            <div className={clsx('plot-plant__bloom', `plot-plant__bloom--${stageKey}`)} />
+          </>
+        )}
+      </div>
     </div>
   );
 };

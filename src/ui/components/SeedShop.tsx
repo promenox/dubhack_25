@@ -12,10 +12,10 @@ const DRAG_TYPE = 'application/seed-type';
 export const SeedShop = ({ seeds, inventory, onBuySeed, onClose }: SeedShopProps) => {
   const handleDragStart =
     (seedType: PlantType): React.DragEventHandler<HTMLDivElement> =>
-    (event) => {
-      event.dataTransfer.effectAllowed = 'copy';
-      event.dataTransfer.setData(DRAG_TYPE, seedType);
-    };
+      (event) => {
+        event.dataTransfer.effectAllowed = 'copy';
+        event.dataTransfer.setData(DRAG_TYPE, seedType);
+      };
 
   return (
     <section className="seed-shop">
@@ -63,8 +63,11 @@ export const SeedShop = ({ seeds, inventory, onBuySeed, onClose }: SeedShopProps
                   type="button"
                   disabled={!canAfford}
                   onClick={() => onBuySeed(seed.type)}
+                  className="seed-card__buy"
+                  aria-label={`Buy for ${seed.seedCost} coins`}
                 >
-                  Buy ({seed.seedCost})
+                  <span className="coin-icon" aria-hidden="true" />
+                  <span className="coin-amount">{seed.seedCost}</span>
                 </button>
               </footer>
             </div>
