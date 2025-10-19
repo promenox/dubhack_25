@@ -11,6 +11,8 @@ interface UserScore {
 	score: number;
 	timestamp: number;
 	lastUpdated: number;
+	username?: string;
+	email?: string;
 }
 
 export class DatabaseService {
@@ -34,6 +36,43 @@ export class DatabaseService {
 			connectTimeoutMS: 5000, // 5 second timeout
 			serverSelectionTimeoutMS: 5000, // 5 second timeout
 		});
+	}
+
+	/**
+	 * Upsert basic user profile details (username/email) for a given userId
+	 */
+	async saveUserProfile(userId: string, username: string, email: string): Promise<void> {
+		await this.connect();
+
+		if (!this.scoresCollection) {
+			throw new Error("Database not initialized");
+		}
+
+		const timestamp = Date.now();
+
+		try {
+			await this.scoresCollection.updateOne(
+				{ userId },
+				{
+					$set: {
+						username,
+						email,
+						lastUpdated: timestamp,
+					},
+					$setOnInsert: {
+						// Ensure a starting score exists when first creating the document
+						score: 0,
+						timestamp,
+					},
+				},
+				{ upsert: true }
+			);
+
+			console.log(`✅ User profile saved for ${userId.substring(0, 10)}... (${username}, ${email})`);
+		} catch (error: any) {
+			console.error("❌ Failed to save user profile:", error.message);
+			throw new Error(`Failed to save user profile: ${error.message}`);
+		}
 	}
 
 	/**
@@ -63,7 +102,6 @@ export class DatabaseService {
 			console.log("🔌 Attempting to connect to MongoDB...");
 			await this.client.connect();
 			this.db = this.client.db(dbName);
-			await this.client.db(dbName).command({ ping: 1 });
 			this.scoresCollection = this.db.collection<UserScore>(collectionName);
 
 			// Create index on userId for faster queries
@@ -225,6 +263,28 @@ export class DatabaseService {
 		} catch (error: any) {
 			console.error("❌ Failed to update score:", error.message);
 			throw new Error(`Failed to update score: ${error.message}`);
+		}
+	}
+
+	/**
+	 * Fetch all users' scores for leaderboard display
+	 */
+	async getAllScores(): Promise<Array<{ userId: string; score: number; username?: string }>> {
+		await this.connect();
+
+		if (!this.scoresCollection) {
+			throw new Error("Database not initialized");
+		}
+
+		try {
+			const cursor = this.scoresCollection
+				.find({}, { projection: { _id: 0, userId: 1, score: 1, username: 1 } })
+				.sort({ score: -1 });
+			const results = await cursor.toArray();
+			return results.map((doc) => ({ userId: doc.userId, score: doc.score, username: doc.username }));
+		} catch (error: any) {
+			console.error("❌ Failed to fetch all scores:", error.message);
+			throw new Error(`Failed to fetch all scores: ${error.message}`);
 		}
 	}
 

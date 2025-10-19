@@ -1,5 +1,16 @@
 import type { ScoreResponse, UpdateScoreResponse } from "../types/ipc";
 
+export interface LeaderboardResponse {
+	success: boolean;
+	scores?: Array<{ userId: string; score: number; username?: string }>;
+	error?: string;
+}
+
+export interface SaveUserProfileResponse {
+	success: boolean;
+	error?: string;
+}
+
 // Try to get ipcRenderer from window or electron
 function getIpcRenderer() {
 	// Try window.ipcRenderer first (from preload script)
@@ -113,6 +124,63 @@ export async function setScore(score: number): Promise<boolean> {
 		}
 	} catch (error) {
 		console.error("❌ Error setting score:", error);
+		return false;
+	}
+}
+
+/**
+ * Fetch all users' scores for leaderboard
+ */
+export async function fetchAllScores(): Promise<Array<{ userId: string; score: number; username?: string }> | null> {
+	try {
+		const ipcRenderer = getIpcRenderer();
+
+		if (!ipcRenderer) {
+			console.warn("⚠️ IPC not available - running in browser mode");
+			return null;
+		}
+
+		const response: LeaderboardResponse = await ipcRenderer.invoke("fetch-all-scores");
+
+		if (response.success && Array.isArray(response.scores)) {
+			return response.scores;
+		} else {
+			console.error("❌ Failed to fetch leaderboard:", response.error);
+			return null;
+		}
+	} catch (error) {
+		console.error("❌ Error fetching leaderboard:", error);
+		return null;
+	}
+}
+
+/**
+ * Save user profile (username/email) keyed by userId in database
+ */
+export async function saveUserProfile(userId: string, username: string, email: string): Promise<boolean> {
+	try {
+		const ipcRenderer = getIpcRenderer();
+
+		if (!ipcRenderer) {
+			console.warn("⚠️ IPC not available - running in browser mode");
+			return false;
+		}
+
+		const response: SaveUserProfileResponse = await ipcRenderer.invoke("save-user-profile", {
+			userId,
+			username,
+			email,
+		});
+
+		if (response.success) {
+			console.log("✅ User profile saved successfully");
+			return true;
+		} else {
+			console.error("❌ Failed to save user profile:", response.error);
+			return false;
+		}
+	} catch (error) {
+		console.error("❌ Error saving user profile:", error);
 		return false;
 	}
 }

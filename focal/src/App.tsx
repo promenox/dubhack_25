@@ -5,6 +5,7 @@ import Auth from "./components/Auth";
 import Dashboard from "./components/Dashboard";
 import Debug from "./components/Debug";
 import Garden from "./components/Garden";
+import Leaderboard from "./components/Leaderboard";
 import Overlay from "./components/Overlay";
 import PlantOverlayWindow from "./components/PlantOverlayWindow";
 import authService from "./services/auth";
@@ -79,6 +80,7 @@ function App() {
 		<Router>
 			<Routes>
 				<Route path="/" element={<Dashboard onSignOut={handleSignOut} />} />
+				<Route path="/leaderboard" element={<Leaderboard />} />
 				<Route path="/overlay" element={<Overlay />} />
 				<Route path="/plant-overlay" element={<PlantOverlayWindow />} />
 				<Route path="/garden" element={<Garden />} />

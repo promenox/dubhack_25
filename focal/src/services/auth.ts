@@ -1,4 +1,3 @@
-import { CognitoUser, CognitoUserPool, CognitoUserSession } from "amazon-cognito-identity-js";
 import axios from "axios";
 import CryptoJS from "crypto-js";
 
@@ -12,8 +11,6 @@ const poolData = {
 	ClientId: CLIENT_ID,
 	ClientSecret: CLIENT_SECRET,
 };
-
-const userPool = new CognitoUserPool(poolData);
 
 // Calculate SECRET_HASH for Cognito requests
 function calculateSecretHash(username: string): string {

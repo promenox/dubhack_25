@@ -668,6 +668,31 @@ class MainApp {
 			}
 		});
 
+		// Handle fetching all users' scores (leaderboard)
+		ipcMain.handle("fetch-all-scores", async () => {
+			try {
+				const scores = await databaseService.getAllScores();
+				return { success: true, scores };
+			} catch (error: any) {
+				console.error("Error fetching all scores:", error.message);
+				return { success: false, error: error.message };
+			}
+		});
+
+		// Handle saving basic user profile details
+		ipcMain.handle(
+			"save-user-profile",
+			async (_e, { userId, username, email }: { userId: string; username: string; email: string }) => {
+				try {
+					await databaseService.saveUserProfile(userId, username, email);
+					return { success: true };
+				} catch (error: any) {
+					console.error("Error saving user profile:", error.message);
+					return { success: false, error: error.message };
+				}
+			}
+		);
+
 		// Handle debug data requests
 		ipcMain.on("request-debug-data", () => {
 			const currentWindow = this.focusTracker.currentWindow;
