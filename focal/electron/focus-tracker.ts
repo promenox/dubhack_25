@@ -1,6 +1,6 @@
 import { exec } from "child_process";
-import { promisify } from "util";
 import { shell } from "electron";
+import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
@@ -318,7 +318,7 @@ export class FocusTracker {
 				if (hasAppChanged) console.log(`  App: ${this.lastActiveApp} → ${appName}`);
 				if (hasWindowChanged) console.log(`  Window: ${this.lastWindowTitle} → ${windowTitle}`);
 				if (hasUrlChanged) console.log(`  URL: ${this.lastUrl} → ${url}`);
-				
+
 				// Update tracking variables
 				this.lastActiveApp = appName;
 				this.lastWindowTitle = windowTitle;
@@ -420,7 +420,6 @@ export class FocusTracker {
 		}
 	}
 
-
 	triggerContextAnalysis() {
 		// Trigger AI reasoning for context analysis when context changes
 		console.log("🧠 Triggering AI context analysis for new context");
@@ -429,33 +428,56 @@ export class FocusTracker {
 
 	async initKeyHook() {
 		try {
-			console.log("Attempting to initialize keystroke tracking...");
+			console.log("Attempting to initialize global keystroke tracking...");
 			console.log("Current context:", typeof process, process.platform);
-			
+
 			// Check if we're in the main process
-			if (!process || process.type === 'renderer') {
+			if (!process || process.type === "renderer") {
 				throw new Error("Not running in main process");
 			}
 
-			// Use Electron's built-in keyboard event tracking instead of uiohook-napi
-			// This avoids ESM compatibility issues
-			console.log("Using Electron's built-in keyboard event tracking");
+			// Dynamically import uiohook-napi for global keystroke tracking
+			const { uIOhook } = await import("uiohook-napi");
+			this.iohook = uIOhook;
+
 			this.keystrokesSinceLastTick = 0;
 			this.mouseMovementsSinceLastTick = 0;
-			
-			// We'll set up the actual event listeners in the main process
-			// when the main window is created and ready
-			console.log("✓ Keyboard tracking initialized (will be connected to window events)");
-			console.log("  Note: This tracks keystrokes in the main window only");
-			console.log("  Note: macOS may require accessibility permissions for keystroke tracking");
-		} catch (e) {
+
+			// Set up global keyboard event listener
+			this.iohook.on("keydown", () => {
+				this.keystrokesSinceLastTick++;
+				if (this.keystrokesSinceLastTick % 10 === 0) {
+					console.log(`✓ Global keypress detected: ${this.keystrokesSinceLastTick} total`);
+				}
+			});
+
+			// Set up global mouse movement listener
+			this.iohook.on("mousemove", (event: any) => {
+				const dx = Math.abs(event.x - this.lastMouseX);
+				const dy = Math.abs(event.y - this.lastMouseY);
+
+				// Only count significant movements (> 5 pixels)
+				if (dx > 5 || dy > 5) {
+					this.mouseMovementsSinceLastTick++;
+					this.lastMouseX = event.x;
+					this.lastMouseY = event.y;
+				}
+			});
+
+			// Start the global hook
+			this.iohook.start();
+
+			console.log("✅ Global keystroke tracking initialized successfully");
+			console.log("  Note: This tracks keystrokes system-wide, even when app is minimized");
+			console.log("  Note: macOS requires accessibility permissions for this to work");
+		} catch (e: any) {
 			this.iohook = null;
-			console.error("✗ Global key hook failed to start:", e);
-			console.warn("  Falling back to demo mode");
-			console.warn("  To enable keystroke tracking:");
-			console.warn("  1. Grant accessibility permissions to the app in System Preferences");
+			console.error("✗ Global key hook failed to start:", e.message);
+			console.warn("  Keystroke tracking will only work when app is in focus");
+			console.warn("  To enable global keystroke tracking:");
+			console.warn("  1. Grant accessibility permissions to the app in System Preferences (macOS)");
 			console.warn("  2. Restart the application");
-			
+
 			// Check if this is a permission issue and provide guidance
 			this.checkAccessibilityPermissions();
 		}
@@ -463,21 +485,26 @@ export class FocusTracker {
 
 	async checkAccessibilityPermissions() {
 		try {
-			if (process.platform === 'darwin') {
+			if (process.platform === "darwin") {
 				console.log("🔍 Checking macOS accessibility permissions...");
-				
+
 				// Try to open System Preferences to accessibility settings
-				const { exec } = require('child_process');
-				exec('open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"', (error: any) => {
-					if (error) {
-						console.log("💡 To enable keystroke tracking:");
-						console.log("   1. Open System Preferences > Security & Privacy > Privacy > Accessibility");
-						console.log("   2. Add this app to the list and enable it");
-						console.log("   3. Restart the application");
-					} else {
-						console.log("💡 System Preferences opened - please grant accessibility permissions to this app");
+				const { exec } = require("child_process");
+				exec(
+					'open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"',
+					(error: any) => {
+						if (error) {
+							console.log("💡 To enable keystroke tracking:");
+							console.log("   1. Open System Preferences > Security & Privacy > Privacy > Accessibility");
+							console.log("   2. Add this app to the list and enable it");
+							console.log("   3. Restart the application");
+						} else {
+							console.log(
+								"💡 System Preferences opened - please grant accessibility permissions to this app"
+							);
+						}
 					}
-				});
+				);
 			}
 		} catch (e) {
 			console.log("💡 Manual steps to enable keystroke tracking:");
@@ -494,9 +521,11 @@ export class FocusTracker {
 				this.iohook.removeAllListeners("mousemove");
 				this.iohook.stop();
 				this.iohook = null;
-				console.log("Global key hook stopped");
+				console.log("✓ Global key hook stopped");
 			}
-		} catch (_) {}
+		} catch (e: any) {
+			console.error("Error stopping global key hook:", e.message);
+		}
 	}
 
 	consumeKeystrokes(): number {
@@ -691,4 +720,3 @@ Write-Output "$appName|$title|$url"
 }
 
 export type { WindowSummary };
-

@@ -79,12 +79,17 @@ class MainApp {
 			this.mainWindow.loadFile(path.join(RENDERER_DIST, "index.html"));
 		}
 
-		// Set up keyboard event tracking for the main window
+		// Set up keyboard event tracking for the main window (fallback if global hook fails)
 		this.mainWindow.webContents.on("before-input-event", (_event, input) => {
 			if (input.type === "keyDown" && this.focusTracker) {
-				this.focusTracker.keystrokesSinceLastTick++;
-				// Log all keystrokes for debugging
-				console.log(`✓ Keypress detected in main window: ${this.focusTracker.keystrokesSinceLastTick} total`);
+				// Only count if global hook is not active (fallback mode)
+				if (!this.focusTracker.iohook) {
+					this.focusTracker.keystrokesSinceLastTick++;
+					// Log all keystrokes for debugging
+					console.log(
+						`✓ Keypress detected in main window (fallback mode): ${this.focusTracker.keystrokesSinceLastTick} total`
+					);
+				}
 			}
 		});
 
@@ -195,11 +200,11 @@ class MainApp {
 		this.overlayWindow.once("ready-to-show", () => {
 			console.log("Overlay window ready to show");
 			console.log("Overlay window size before fix:", this.overlayWindow?.getSize());
-			
+
 			// Force the correct size immediately
 			this.overlayWindow?.setSize(380, 160, false);
 			this.overlayWindow?.setResizable(false);
-			
+
 			console.log("Overlay window size after fix:", this.overlayWindow?.getSize());
 			console.log("Overlay window bounds:", this.overlayWindow?.getBounds());
 			this.overlayWindow?.showInactive();
@@ -215,9 +220,14 @@ class MainApp {
 			if (input.type === "mouseDown") {
 				this.overlayWindow?.setIgnoreMouseEvents(false);
 			} else if (input.type === "keyDown" && this.focusTracker) {
-				this.focusTracker.keystrokesSinceLastTick++;
-				// Log all keystrokes for debugging
-				console.log(`✓ Keypress detected in overlay window: ${this.focusTracker.keystrokesSinceLastTick} total`);
+				// Only count if global hook is not active (fallback mode)
+				if (!this.focusTracker.iohook) {
+					this.focusTracker.keystrokesSinceLastTick++;
+					// Log all keystrokes for debugging
+					console.log(
+						`✓ Keypress detected in overlay window (fallback mode): ${this.focusTracker.keystrokesSinceLastTick} total`
+					);
+				}
 			}
 		});
 	}
@@ -230,15 +240,15 @@ class MainApp {
 			return;
 		}
 		console.log("Overlay window created successfully");
-		
+
 		if (this.overlayWindow.isMinimized()) this.overlayWindow.restore();
-		
+
 		// Force the window to be the correct size multiple times
 		this.overlayWindow.setSize(380, 160, false);
 		this.overlayWindow.setResizable(false);
 		this.overlayWindow.setMinimumSize(380, 160);
 		this.overlayWindow.setMaximumSize(380, 160);
-		
+
 		// Force size again after a short delay
 		setTimeout(() => {
 			if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
@@ -246,7 +256,7 @@ class MainApp {
 				console.log("Overlay window size after timeout fix:", this.overlayWindow.getSize());
 			}
 		}, 100);
-		
+
 		this.overlayWindow.showInactive();
 		console.log("Overlay window shown");
 		console.log("Final overlay window size:", this.overlayWindow.getSize());
@@ -489,7 +499,7 @@ class MainApp {
 						if (this.debugWindow && !this.debugWindow.isDestroyed()) {
 							this.debugWindow.webContents.send("focus-update", debugData);
 						}
-						
+
 						// Send to main window for debug console
 						if (this.mainWindow && !this.mainWindow.isDestroyed()) {
 							this.mainWindow.webContents.send("focus-update", debugData);
@@ -579,7 +589,7 @@ app.whenReady().then(() => {
 	mainApp.setupIPC();
 
 	app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
+		if (BrowserWindow.getAllWindows().length === 0) {
 			mainApp.createWindow();
 		}
 	});

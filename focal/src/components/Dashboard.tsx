@@ -11,7 +11,11 @@ interface Activity {
 	type: string;
 }
 
-const Dashboard = () => {
+interface DashboardProps {
+	onSignOut?: () => void;
+}
+
+const Dashboard = ({ onSignOut }: DashboardProps) => {
 	const navigate = useNavigate();
 	const [instantaneousScore, setInstantaneousScore] = useState<number>(0);
 	const [cumulativeScore, setCumulativeScore] = useState<number>(0);
@@ -286,8 +290,23 @@ const Dashboard = () => {
 			{/* Main Content */}
 			<div className="main-content">
 				<div className="dashboard-header">
-					<h1 className="dashboard-title">Productivity Dashboard</h1>
-					<p className="dashboard-subtitle">Track your focus and grow your digital garden</p>
+					<div>
+						<h1 className="dashboard-title">Productivity Dashboard</h1>
+						<p className="dashboard-subtitle">Track your focus and grow your digital garden</p>
+					</div>
+					{onSignOut && (
+						<button
+							className="btn btn-secondary"
+							onClick={onSignOut}
+							style={{
+								padding: "10px 20px",
+								fontSize: "14px",
+								minWidth: "120px",
+							}}
+						>
+							Sign Out
+						</button>
+					)}
 				</div>
 
 				{/* Premium Cards Grid */}
