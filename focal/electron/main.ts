@@ -38,7 +38,14 @@ class MainApp {
 		this.overlayWindow = null;
 		this.plantOverlayWindow = null;
 		this.focusTracker = new FocusTracker();
-		this.focusAI = new FocusAI();
+
+		// Initialize FocusAI with Bedrock API key
+		// You can set this via environment variable or directly here
+		const bedrockApiKey =
+			process.env.BEDROCK_API_KEY ||
+			"ABSKQmVkcm9ja0FQSUtleS1rczM5LWF0LTI3NDEwNjczMzMwNDpYZk1GSUFKZThJckt1TWxrT0RIUzAzVkVLR1VBZHJaZTJDbVYzcFQ0eDdjMHlUUUJsYnUvd1BmYituYz0=";
+		this.focusAI = new FocusAI(bedrockApiKey);
+
 		this.isDev = process.argv.includes("--dev");
 		this.updateInterval = null;
 		this.sessionActive = false;

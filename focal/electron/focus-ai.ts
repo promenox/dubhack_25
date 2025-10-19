@@ -1,4 +1,6 @@
 import type { WindowSummary } from "./focus-tracker";
+import { ContextAnalyzer } from "./services/contextAnalyzer";
+import type { ProductivityAnalysis, ScreenContext } from "./services/types";
 
 interface BaseWeights {
 	keystrokeActivity: number;
@@ -47,9 +49,28 @@ export class FocusAI {
 		distracted: number;
 		idle: number;
 	};
+	contextAnalyzer: ContextAnalyzer | null;
 
-	constructor() {
+	constructor(bedrockApiKey?: string) {
 		console.log("🎯 FocusAI: Initializing with LINEAR SCORING ENGINE");
+
+		// Initialize context analyzer if API key is provided
+		if (bedrockApiKey) {
+			try {
+				this.contextAnalyzer = new ContextAnalyzer({
+					apiKey: bedrockApiKey,
+					region: "us-west-2",
+					model: "anthropic.claude-3-sonnet-20240229-v1:0",
+				});
+				console.log("🧠 Context Analyzer enabled with AWS Bedrock");
+			} catch (error: any) {
+				console.warn("⚠️ Context Analyzer initialization failed:", error.message);
+				this.contextAnalyzer = null;
+			}
+		} else {
+			console.log("ℹ️ Context Analyzer disabled (no API key provided)");
+			this.contextAnalyzer = null;
+		}
 
 		// Scoring weights for base calculation
 		this.baseWeights = {
@@ -76,13 +97,13 @@ export class FocusAI {
 		// 1000 points = 10 hours of peak performance (600 minutes × 1.67 = 1000 points)
 		this.baseRatePerMinute = 1.67; // Base rate for focused work
 		this.maxTotalPoints = 1000; // 10 hours of peak performance
-		
+
 		// Context multipliers
 		this.contextMultipliers = {
-			productive: 1.0,    // +1.0 for productive activities
-			neutral: 0.5,       // +0.5 for neutral activities (reduced from 0.7)
-			distracted: 0.1,    // +0.1 for distracting activities (reduced penalty)
-			idle: 0.0           // 0.0 for idle time
+			productive: 1.0, // +1.0 for productive activities
+			neutral: 0.5, // +0.5 for neutral activities (reduced from 0.7)
+			distracted: 0.1, // +0.1 for distracting activities (reduced penalty)
+			idle: 0.0, // 0.0 for idle time
 		};
 	}
 
@@ -94,9 +115,9 @@ export class FocusAI {
 			const baseScore = this.calculateBaseScore(activityWindow);
 			console.log("📊 Base score calculated:", baseScore);
 
-			// Step 2: Use rule-based context analysis (skip AI for now)
-			const aiContext = this.getRuleBasedContext(activityWindow);
-			console.log("🧠 Rule-based context:", aiContext);
+			// Step 2: Get AI-powered context analysis or fallback to rule-based
+			const aiContext = await this.getAIContext(activityWindow);
+			console.log("🧠 Context analysis:", aiContext);
 
 			// Step 3: Apply multiplier to base score
 			const finalScore = this.applyAIMultiplier(baseScore, aiContext);
@@ -123,30 +144,74 @@ export class FocusAI {
 		}
 	}
 
+	async getAIContext(activityWindow: WindowSummary): Promise<AIContext> {
+		// Try to use AI-powered context analysis if available
+		if (this.contextAnalyzer && this.contextAnalyzer.isReady()) {
+			try {
+				// Convert activity window to screen context format
+				const currentScreen: ScreenContext = {
+					activeApp: activityWindow.activeApp,
+					windowTitle: activityWindow.windowTitle,
+					url: activityWindow.url,
+					timestamp: activityWindow.timestamp,
+				};
+
+				// Get recent screens from context
+				const recentScreens: ScreenContext[] = activityWindow.context.recentApps.map((app) => ({
+					activeApp: app.app,
+					windowTitle: app.title,
+					url: app.url,
+					timestamp: app.timestamp,
+				}));
+
+				// Call the context analyzer
+				const analysis: ProductivityAnalysis = await this.contextAnalyzer.analyzeContext(
+					currentScreen,
+					recentScreens
+				);
+
+				// Convert ProductivityAnalysis to AIContext
+				return {
+					multiplier: analysis.weightMultiplier,
+					insight: analysis.insight,
+					context: `${analysis.contextRelation} - ${analysis.productivityLevel}`,
+					confidence: 0.9, // High confidence when using AI
+				};
+			} catch (error: any) {
+				console.warn("⚠️ AI context analysis failed, falling back to rules:", error.message);
+				return this.getRuleBasedContext(activityWindow);
+			}
+		}
+
+		// Fallback to rule-based context
+		return this.getRuleBasedContext(activityWindow);
+	}
+
 	calculateBaseScore(activityWindow: WindowSummary): number {
 		// Only calculate points for completed activity windows (3-5 minute batches)
 		// This prevents accumulating points every few seconds
-		if (!activityWindow.isComplete) {
-			return 0; // No points for incomplete windows
+		// Note: WindowSummary doesn't have isComplete, so we check duration instead
+		if (activityWindow.duration < 60000) {
+			return 0; // No points for windows less than 1 minute
 		}
-		
+
 		// Linear scoring engine: 1.67 points per focused minute
 		const windowDurationMinutes = activityWindow.duration / 60000; // Convert ms to minutes
-		
+
 		// Apply focus ratio (how much time was actually focused vs idle)
 		const focusRatio = activityWindow.focusRatio || 0;
 		const focusedMinutes = windowDurationMinutes * focusRatio;
-		
+
 		// Base score is points for focused time
 		const baseScore = this.baseRatePerMinute * focusedMinutes;
-		
+
 		// Adjust based on engagement level (keystrokes and mouse activity)
 		const engagementLevel = this.calculateEngagementLevel(activityWindow);
 		const engagementMultiplier = Math.max(0.3, Math.min(1.5, engagementLevel));
-		
+
 		// Final base score with engagement adjustment
 		const adjustedBaseScore = baseScore * engagementMultiplier;
-		
+
 		return Math.max(0, adjustedBaseScore);
 	}
 
@@ -154,14 +219,14 @@ export class FocusAI {
 		// Calculate engagement level based on keystrokes and mouse movements
 		const keystrokeRate = activityWindow.keystrokeRate || 0;
 		const mouseRate = activityWindow.mouseMovementRate || 0;
-		
+
 		// Optimal engagement: 20-40 keystrokes per minute, moderate mouse movement
 		const keystrokeEngagement = Math.min(1.0, keystrokeRate / 30); // Normalize to 30 keystrokes/min
 		const mouseEngagement = Math.min(1.0, mouseRate / 100); // Normalize to 100 mouse movements/min
-		
+
 		// Combine with weights: keystrokes are more important for productivity
-		const engagementLevel = (keystrokeEngagement * 0.7) + (mouseEngagement * 0.3);
-		
+		const engagementLevel = keystrokeEngagement * 0.7 + mouseEngagement * 0.3;
+
 		return Math.max(0.3, engagementLevel); // Minimum 30% engagement even when idle
 	}
 
@@ -250,7 +315,11 @@ export class FocusAI {
 		} else if (this.userPatterns.learningApps.has(app)) {
 			// Learning apps can be productive or neutral depending on context
 			const titleLower = title.toLowerCase();
-			if (titleLower.includes("tutorial") || titleLower.includes("course") || titleLower.includes("educational")) {
+			if (
+				titleLower.includes("tutorial") ||
+				titleLower.includes("course") ||
+				titleLower.includes("educational")
+			) {
 				contextCategory = "productive";
 				multiplier = this.contextMultipliers.productive;
 				insight = "Learning from educational content";
@@ -266,7 +335,11 @@ export class FocusAI {
 		// Title-based analysis for additional context
 		if (title && contextCategory !== "idle") {
 			const titleLower = title.toLowerCase();
-			if (titleLower.includes("game") || titleLower.includes("entertainment") || titleLower.includes("youtube") && !titleLower.includes("tutorial")) {
+			if (
+				titleLower.includes("game") ||
+				titleLower.includes("entertainment") ||
+				(titleLower.includes("youtube") && !titleLower.includes("tutorial"))
+			) {
 				contextCategory = "distracted";
 				multiplier = this.contextMultipliers.distracted;
 				insight = "Entertainment activity";
