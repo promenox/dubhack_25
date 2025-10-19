@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { FocusAI } from "./focus-ai";
 import { FocusTracker } from "./focus-tracker";
+import type { GardenState } from "../src/core";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -31,6 +32,8 @@ class MainApp {
 	sessionActive: boolean;
 	sessionStartTime: number | null;
 	overlayUpdateInterval: NodeJS.Timeout | null;
+	latestGardenState: GardenState | null;
+	overlaySelection: string | null;
 
 	constructor() {
 		this.mainWindow = null;
@@ -43,6 +46,8 @@ class MainApp {
 		this.updateInterval = null;
 		this.sessionActive = false;
 		this.sessionStartTime = null;
+		this.latestGardenState = null;
+		this.overlaySelection = null;
 
 		// Initialize keystroke tracking
 		this.initializeKeystrokeTracking();
@@ -208,6 +213,13 @@ class MainApp {
 		this.overlayWindow.on("closed", () => {
 			console.log("Overlay window closed");
 			this.overlayWindow = null;
+		});
+
+		this.overlayWindow.webContents.on("did-finish-load", () => {
+			if (this.latestGardenState) {
+				this.overlayWindow?.webContents.send("garden:state", this.latestGardenState);
+			}
+			this.overlayWindow?.webContents.send("overlay:selection", this.overlaySelection ?? null);
 		});
 
 		// Add drag functionality and keyboard tracking
@@ -482,6 +494,29 @@ class MainApp {
 		});
 	}
 
+	broadcastGardenState() {
+		if (!this.latestGardenState) {
+			return;
+		}
+		const payload = this.latestGardenState;
+		const targets = [this.overlayWindow, this.mainWindow, this.plantOverlayWindow];
+		for (const target of targets) {
+			if (target && !target.isDestroyed()) {
+				target.webContents.send("garden:state", payload);
+			}
+		}
+	}
+
+	broadcastOverlaySelection() {
+		const payload = this.overlaySelection ?? null;
+		const targets = [this.overlayWindow, this.mainWindow, this.plantOverlayWindow];
+		for (const target of targets) {
+			if (target && !target.isDestroyed()) {
+				target.webContents.send("overlay:selection", payload);
+			}
+		}
+	}
+
 	setupIPC() {
 		ipcMain.handle("get-current-metrics", () => {
 			return this.focusTracker.getCurrentMetrics();
@@ -498,6 +533,30 @@ class MainApp {
 		ipcMain.handle("get-garden-level", () => {
 			return this.focusAI.getGardenGrowthLevel();
 		});
+
+		ipcMain.on("garden:state:update", (_event, state: GardenState) => {
+			this.latestGardenState = state;
+			this.broadcastGardenState();
+		});
+
+		ipcMain.on("garden:state:request", (event) => {
+			if (this.latestGardenState) {
+				event.sender.send("garden:state", this.latestGardenState);
+			}
+			event.sender.send("overlay:selection", this.overlaySelection ?? null);
+		});
+
+		ipcMain.handle("overlay:selection:set", async (_event, plotId: string | null) => {
+			this.overlaySelection = plotId ?? null;
+			this.broadcastOverlaySelection();
+			this.createOverlayWindow();
+			if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+				this.overlayWindow.showInactive();
+			}
+			return this.overlaySelection;
+		});
+
+		ipcMain.handle("overlay:selection:get", async () => this.overlaySelection ?? null);
 
 		// Handle overlay window movement
 		ipcMain.on("overlay-move", (_e, { x, y }) => {
@@ -698,6 +757,7 @@ const mainApp = new MainApp();
 
 app.whenReady().then(() => {
 	mainApp.createWindow();
+	mainApp.createOverlayWindow();
 	mainApp.setupIPC();
 
 	app.on("activate", () => {

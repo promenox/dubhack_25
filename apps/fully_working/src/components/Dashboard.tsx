@@ -260,6 +260,10 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 						<div className="nav-icon">🌱</div>
 						<div className="nav-label">Garden</div>
 					</div>
+					<div className="nav-item" onClick={() => navigate("/growgarden")}>
+						<div className="nav-icon">🌼</div>
+						<div className="nav-label">GrowGarden</div>
+					</div>
 					<div className="nav-item">
 						<div className="nav-icon">📈</div>
 						<div className="nav-label">Analytics</div>
