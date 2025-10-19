@@ -37,4 +37,17 @@ export default defineConfig({
 	optimizeDeps: {
 		exclude: ["mongodb", "kerberos", "bson", "@mongodb-js/saslprep"],
 	},
+	define: {
+		global: "globalThis",
+	},
+	resolve: {
+		alias: {
+			buffer: "buffer",
+		},
+	},
+	build: {
+		rollupOptions: {
+			external: ["mongodb", "kerberos", "bson", "@mongodb-js/saslprep"],
+		},
+	},
 });
