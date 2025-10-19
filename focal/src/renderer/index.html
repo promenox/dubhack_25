@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focal Productivity Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(50, 50, 50, 0.95));
+            backdrop-filter: blur(20px);
+            color: white;
+            overflow: hidden;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .container {
+            padding: 20px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .app-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #a0a0a0;
+            margin-bottom: 5px;
+        }
+
+        .score-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: conic-gradient(
+                var(--score-color) 0deg,
+                var(--score-color) calc(var(--score) * 3.6deg),
+                rgba(255, 255, 255, 0.1) calc(var(--score) * 3.6deg),
+                rgba(255, 255, 255, 0.1) 360deg
+            );
+            transition: all 0.5s ease;
+        }
+
+        .score-circle::before {
+            content: '';
+            position: absolute;
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(50, 50, 50, 0.95));
+        }
+
+        .score-value {
+            font-size: 32px;
+            font-weight: 700;
+            z-index: 1;
+            color: var(--score-color);
+        }
+
+        .score-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .metric {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .metric-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .metric-label {
+            font-size: 10px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .insight {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 15px;
+        }
+
+        .insight-text {
+            font-size: 11px;
+            line-height: 1.4;
+            color: #ccc;
+        }
+
+        .current-app {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .app-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .app-title {
+            font-size: 10px;
+            color: #888;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            opacity: 0.6;
+        }
+
+        .score-excellent { --score-color: #4ade80; }
+        .score-good { --score-color: #22c55e; }
+        .score-average { --score-color: #eab308; }
+        .score-poor { --score-color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="status-indicator"></div>
+    
+    <div class="container">
+        <div class="header">
+            <div class="app-title">Focal Productivity</div>
+        </div>
+
+        <div class="score-container">
+            <div class="score-label">Productivity Score</div>
+            <div class="score-circle" id="scoreCircle">
+                <div class="score-value" id="scoreValue">--</div>
+            </div>
+        </div>
+
+        <div class="metrics">
+            <div class="metric">
+                <div class="metric-value" id="sessionTime">--</div>
+                <div class="metric-label">Session (min)</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="windowSwitches">--</div>
+                <div class="metric-label">Switches</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="keystrokes">--</div>
+                <div class="metric-label">Keystrokes</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="productivityRatio">--</div>
+                <div class="metric-label">Focus %</div>
+            </div>
+        </div>
+
+        <div class="insight">
+            <div class="insight-text" id="insightText">
+                Analyzing your productivity patterns...
+            </div>
+        </div>
+
+        <div class="current-app">
+            <div class="app-name" id="currentAppName">Starting up...</div>
+            <div class="app-title" id="currentAppTitle">Initializing activity tracking</div>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        class ProductivityUI {
+            constructor() {
+                this.elements = {
+                    scoreCircle: document.getElementById('scoreCircle'),
+                    scoreValue: document.getElementById('scoreValue'),
+                    sessionTime: document.getElementById('sessionTime'),
+                    windowSwitches: document.getElementById('windowSwitches'),
+                    keystrokes: document.getElementById('keystrokes'),
+                    productivityRatio: document.getElementById('productivityRatio'),
+                    insightText: document.getElementById('insightText'),
+                    currentAppName: document.getElementById('currentAppName'),
+                    currentAppTitle: document.getElementById('currentAppTitle')
+                };
+
+                this.setupEventListeners();
+                this.requestInitialData();
+            }
+
+            setupEventListeners() {
+                ipcRenderer.on('productivity-update', (event, data) => {
+                    this.updateUI(data);
+                });
+            }
+
+            async requestInitialData() {
+                try {
+                    const metrics = await ipcRenderer.invoke('get-current-metrics');
+                    const score = await ipcRenderer.invoke('get-productivity-score');
+                    
+                    if (score) {
+                        this.updateUI(score);
+                    }
+                } catch (error) {
+                    console.error('Error getting initial data:', error);
+                }
+            }
+
+            updateUI(data) {
+                console.log('Received data:', data);
+                
+                const { score, metrics, analysis } = data;
+
+                // Update score
+                this.elements.scoreValue.textContent = score || '--';
+                this.elements.scoreCircle.style.setProperty('--score', score || 0);
+                
+                // Update score color based on value
+                this.elements.scoreCircle.className = 'score-circle ' + this.getScoreClass(score || 0);
+
+                // Update metrics with proper fallbacks
+                this.elements.sessionTime.textContent = metrics?.sessionTime || '--';
+                this.elements.windowSwitches.textContent = metrics?.windowSwitches || '--';
+                this.elements.keystrokes.textContent = metrics?.keystrokes || '--';
+                this.elements.productivityRatio.textContent = metrics?.productivityRatio || '--';
+
+                // Update insight
+                if (analysis && analysis.insight) {
+                    this.elements.insightText.textContent = analysis.insight;
+                } else {
+                    this.elements.insightText.textContent = 'Analyzing productivity patterns...';
+                }
+
+                // Update current app
+                this.elements.currentAppName.textContent = metrics?.currentApp || 'Unknown';
+                this.elements.currentAppTitle.textContent = 'Active Application';
+            }
+
+            getScoreClass(score) {
+                if (score >= 80) return 'score-excellent';
+                if (score >= 60) return 'score-good';
+                if (score >= 40) return 'score-average';
+                return 'score-poor';
+            }
+        }
+
+        // Initialize the UI
+        new ProductivityUI();
+    </script>
+</body>
+</html>

@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocusAI Debug Console</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666666;
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #2a2a2a;
+            --shadow-primary: 0 8px 32px rgba(0, 0, 0, 0.3);
+            --shadow-secondary: 0 4px 16px rgba(0, 0, 0, 0.2);
+            --border-radius: 16px;
+            --border-radius-sm: 8px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            font-weight: 400;
+            line-height: 1.6;
+        }
+
+        .debug-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Premium Sidebar */
+        .debug-sidebar {
+            width: 320px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--glass-border);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .debug-sidebar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            pointer-events: none;
+        }
+
+        .debug-header {
+            margin-bottom: 32px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .debug-title {
+            font-size: 24px;
+            font-weight: 800;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .debug-subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .debug-section {
+            margin-bottom: 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .debug-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .debug-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .debug-item:last-child {
+            border-bottom: none;
+        }
+
+        .debug-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .debug-value {
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .debug-value.number {
+            color: #4facfe;
+        }
+
+        .debug-value.string {
+            color: #43e97b;
+        }
+
+        .debug-value.boolean {
+            color: #fa709a;
+        }
+
+        /* Main Debug Content */
+        .debug-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .debug-tabs {
+            display: flex;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 0 24px;
+        }
+
+        .debug-tab {
+            padding: 16px 24px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: var(--transition);
+            font-weight: 500;
+            position: relative;
+        }
+
+        .debug-tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+        }
+
+        .debug-tab:hover {
+            background: var(--glass-bg);
+        }
+
+        .debug-content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .debug-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .debug-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .debug-content::-webkit-scrollbar-thumb {
+            background: var(--glass-border);
+            border-radius: 3px;
+        }
+
+        .debug-content::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Premium Cards */
+        .debug-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius);
+            padding: 24px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .debug-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+            pointer-events: none;
+        }
+
+        .debug-card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Raw Data Stream */
+        .raw-data-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-sm);
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .raw-data-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .raw-data-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .raw-data-content::-webkit-scrollbar-thumb {
+            background: var(--glass-border);
+            border-radius: 3px;
+        }
+
+        /* Premium Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-family: 'Inter', sans-serif;
+            margin-right: 12px;
+            margin-bottom: 12px;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: inherit;
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .btn:hover::before {
+            opacity: 0.1;
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: var(--shadow-secondary);
+        }
+
+        .btn-secondary {
+            background: var(--secondary-gradient);
+            color: white;
+            box-shadow: var(--shadow-secondary);
+        }
+
+        .btn-success {
+            background: var(--success-gradient);
+            color: white;
+            box-shadow: var(--shadow-secondary);
+        }
+
+        .btn-warning {
+            background: var(--warning-gradient);
+            color: white;
+            box-shadow: var(--shadow-secondary);
+        }
+
+        .btn-danger {
+            background: var(--danger-gradient);
+            color: white;
+            box-shadow: var(--shadow-secondary);
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-sm);
+            padding: 16px;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Status Indicators */
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-online {
+            background: #43e97b;
+            box-shadow: 0 0 8px rgba(67, 233, 123, 0.5);
+        }
+
+        .status-offline {
+            background: #fa709a;
+            box-shadow: 0 0 8px rgba(250, 112, 154, 0.5);
+        }
+
+        .status-warning {
+            background: #fee140;
+            box-shadow: 0 0 8px rgba(254, 225, 64, 0.5);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .debug-card {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .debug-card:nth-child(2) {
+            animation-delay: 0.1s;
+        }
+
+        .debug-card:nth-child(3) {
+            animation-delay: 0.2s;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .debug-sidebar {
+                width: 280px;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <!-- Premium Debug Sidebar -->
+        <div class="debug-sidebar">
+            <div class="debug-header">
+                <h1 class="debug-title">Debug Console</h1>
+                <p class="debug-subtitle">Real-time system monitoring</p>
+            </div>
+
+            <div class="debug-section">
+                <div class="debug-section-title">System Status</div>
+                <div class="debug-item">
+                    <div class="debug-label">Status</div>
+                    <div class="debug-value">
+                        <span class="status-indicator status-online"></span>
+                        Online
+                    </div>
+                </div>
+                <div class="debug-item">
+                    <div class="debug-label">Session Duration</div>
+                    <div class="debug-value number" id="sessionDuration">00:00:00</div>
+                </div>
+                <div class="debug-item">
+                    <div class="debug-label">Last Update</div>
+                    <div class="debug-value string" id="lastUpdate">Never</div>
+                </div>
+            </div>
+
+            <div class="debug-section">
+                <div class="debug-section-title">Live Activity Tracking</div>
+                <div class="debug-item">
+                    <div class="debug-label">Current App</div>
+                    <div class="debug-value string" id="currentApp">Unknown</div>
+                </div>
+                <div class="debug-item">
+                    <div class="debug-label">Current URL</div>
+                    <div class="debug-value string" id="currentUrl">Unknown</div>
+                </div>
+                <div class="debug-item">
+                    <div class="debug-label">Window Title</div>
+                    <div class="debug-value string" id="currentWindowTitle">Unknown</div>
+                </div>
+                <div class="debug-item">
+                    <div class="debug-label">Last Switch</div>
+                    <div class="debug-value string" id="lastSwitch">None</div>
+                </div>
+                <div class="debug-item">
+                    <div class="debug-label">Switch Count</div>
+                    <div class="debug-value number" id="switchCount">0</div>
+                </div>
+            </div>
+
+            <div class="debug-section">
+                <div class="debug-section-title">Live Scores</div>
+                <div class="debug-item">
+                    <div class="debug-label">Instantaneous</div>
+                    <div class="debug-value number" id="liveInstantaneous">--</div>
+                </div>
+                <div class="debug-item">
+                    <div class="debug-label">Cumulative</div>
+                    <div class="debug-value number" id="liveCumulative">--</div>
+                </div>
+                <div class="debug-item">
+                    <div class="debug-label">Base Score</div>
+                    <div class="debug-value number" id="liveBaseScore">--</div>
+                </div>
+                <div class="debug-item">
+                    <div class="debug-label">AI Multiplier</div>
+                    <div class="debug-value number" id="liveAIMultiplier">--</div>
+                </div>
+            </div>
+
+            <div class="debug-section">
+                <div class="debug-section-title">Activity Metrics</div>
+                <div class="debug-item">
+                    <div class="debug-label">Keystroke Rate</div>
+                    <div class="debug-value number" id="liveKeystrokeRate">--/min</div>
+                </div>
+                <div class="debug-item">
+                    <div class="debug-label">Switch Rate</div>
+                    <div class="debug-value number" id="liveSwitchRate">--/min</div>
+                </div>
+                <div class="debug-item">
+                    <div class="debug-label">Focus Ratio</div>
+                    <div class="debug-value number" id="liveFocusRatio">--%</div>
+                </div>
+            </div>
+
+            <div class="debug-section">
+                <div class="debug-section-title">Quick Actions</div>
+                <button class="btn btn-primary" onclick="clearData()">Clear Data</button>
+                <button class="btn btn-secondary" onclick="exportData()">Export Data</button>
+                <button class="btn btn-warning" onclick="refreshData()">Refresh</button>
+            </div>
+        </div>
+
+        <!-- Main Debug Content -->
+        <div class="debug-main">
+            <div class="debug-tabs">
+                <div class="debug-tab active" onclick="switchTab('raw')">Raw Data Stream</div>
+                <div class="debug-tab" onclick="switchTab('calculations')">Backend Calculations</div>
+                <div class="debug-tab" onclick="switchTab('ai')">AI Analysis</div>
+                <div class="debug-tab" onclick="switchTab('activity')">Activity Log</div>
+                <div class="debug-tab" onclick="switchTab('system')">System Info</div>
+            </div>
+
+            <div class="debug-content">
+                <!-- Raw Data Stream Tab -->
+                <div id="raw-tab" class="tab-content">
+                    <div class="debug-card">
+                        <h3 class="debug-card-title">Live Data Stream</h3>
+                        <pre id="rawDataStream" class="raw-data-content">Waiting for data...</pre>
+                    </div>
+                </div>
+
+                <!-- Backend Calculations Tab -->
+                <div id="calculations-tab" class="tab-content" style="display: none;">
+                    <div class="debug-card">
+                        <h3 class="debug-card-title">Score Calculation Breakdown</h3>
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <div class="metric-value" id="calcKeystrokeScore">--</div>
+                                <div class="metric-label">Keystroke Activity</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value" id="calcFocusScore">--</div>
+                                <div class="metric-label">Focus Consistency</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value" id="calcActiveScore">--</div>
+                                <div class="metric-label">Active Time</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value" id="calcSessionScore">--</div>
+                                <div class="metric-label">Session Duration</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Analysis Tab -->
+                <div id="ai-tab" class="tab-content" style="display: none;">
+                    <div class="debug-card">
+                        <h3 class="debug-card-title">AI Context Analysis</h3>
+                        <div id="aiAnalysis">
+                            <p>AI analysis will appear here...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Log Tab -->
+                <div id="activity-tab" class="tab-content" style="display: none;">
+                    <div class="debug-card">
+                        <h3 class="debug-card-title">Live Activity Feed</h3>
+                        <div id="liveActivityFeed">
+                            <p>Live activity tracking will appear here...</p>
+                        </div>
+                    </div>
+                    <div class="debug-card">
+                        <h3 class="debug-card-title">Activity History</h3>
+                        <div id="activityLog">
+                            <p>Activity history will appear here...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Info Tab -->
+                <div id="system-tab" class="tab-content" style="display: none;">
+                    <div class="debug-card">
+                        <h3 class="debug-card-title">System Information</h3>
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <div class="metric-value" id="sysUptime">--</div>
+                                <div class="metric-label">Uptime</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value" id="sysUpdates">--</div>
+                                <div class="metric-label">Updates</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value" id="sysErrors">--</div>
+                                <div class="metric-label">Errors</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value" id="sysMemory">--</div>
+                                <div class="metric-label">Memory Usage</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        class DebugConsole {
+            constructor() {
+                this.startTime = Date.now();
+                this.updateCount = 0;
+                this.errorCount = 0;
+                this.switchCount = 0;
+                this.lastApp = null;
+                this.elements = {
+                    rawDataStream: document.getElementById('rawDataStream'),
+                    currentApp: document.getElementById('currentApp'),
+                    currentUrl: document.getElementById('currentUrl'),
+                    currentWindowTitle: document.getElementById('currentWindowTitle'),
+                    lastSwitch: document.getElementById('lastSwitch'),
+                    switchCount: document.getElementById('switchCount'),
+                    liveInstantaneous: document.getElementById('liveInstantaneous'),
+                    liveCumulative: document.getElementById('liveCumulative'),
+                    liveBaseScore: document.getElementById('liveBaseScore'),
+                    liveAIMultiplier: document.getElementById('liveAIMultiplier'),
+                    liveKeystrokeRate: document.getElementById('liveKeystrokeRate'),
+                    liveSwitchRate: document.getElementById('liveSwitchRate'),
+                    liveFocusRatio: document.getElementById('liveFocusRatio'),
+                    sessionDuration: document.getElementById('sessionDuration'),
+                    lastUpdate: document.getElementById('lastUpdate')
+                };
+                
+                this.setupEventListeners();
+                this.startSessionTimer();
+                this.startLiveTracking();
+            }
+
+            setupEventListeners() {
+                ipcRenderer.on('focus-update', (event, data) => {
+                    this.updateDebugData(data);
+                });
+            }
+
+            startLiveTracking() {
+                // Request initial data
+                ipcRenderer.send('request-debug-data');
+                
+                // Set up periodic data requests
+                setInterval(() => {
+                    ipcRenderer.send('request-debug-data');
+                }, 2000); // Request data every 2 seconds
+            }
+
+            startSessionTimer() {
+                setInterval(() => {
+                    const duration = Date.now() - this.startTime;
+                    const hours = Math.floor(duration / 3600000);
+                    const minutes = Math.floor((duration % 3600000) / 60000);
+                    const seconds = Math.floor((duration % 60000) / 1000);
+                    
+                    this.elements.sessionDuration.textContent = 
+                        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }, 1000);
+            }
+
+            updateDebugData(data) {
+                this.updateCount++;
+                const timestamp = new Date().toISOString();
+                
+                // Update sidebar values
+                this.updateSystemStatus(data);
+                
+                // Update raw data stream
+                this.updateRawDataStream(data, timestamp);
+                
+                // Update calculations
+                this.updateCalculations(data);
+                
+                // Update AI analysis
+                this.updateAIAnalysis(data);
+                
+                // Update activity log
+                this.updateActivityLog(data, timestamp);
+                
+                // Update live activity feed
+                this.updateLiveActivityFeed(data, timestamp);
+                
+                // Update last update time
+                this.elements.lastUpdate.textContent = new Date().toLocaleTimeString();
+            }
+
+            updateSystemStatus(data) {
+                // Track app switches
+                if (this.lastApp && this.lastApp !== data.activeApp) {
+                    this.switchCount++;
+                    this.elements.lastSwitch.textContent = `${this.lastApp} → ${data.activeApp}`;
+                    this.elements.switchCount.textContent = this.switchCount;
+                }
+                this.lastApp = data.activeApp;
+
+                this.elements.currentApp.textContent = data.activeApp || 'Unknown';
+                this.elements.currentUrl.textContent = data.url || 'N/A';
+                this.elements.currentWindowTitle.textContent = data.windowTitle || 'Unknown';
+                this.elements.liveInstantaneous.textContent = data.instantaneous || '--';
+                this.elements.liveCumulative.textContent = data.cumulative || '--';
+                this.elements.liveBaseScore.textContent = data.baseScore || '--';
+                this.elements.liveAIMultiplier.textContent = data.aiMultiplier || '--';
+                this.elements.liveKeystrokeRate.textContent = `${Math.round(data.keystrokeRate || 0)}/min`;
+                this.elements.liveSwitchRate.textContent = `${Math.round(data.switchRate || 0)}/min`;
+                this.elements.liveFocusRatio.textContent = `${Math.round((data.focusRatio || 0) * 100)}%`;
+            }
+
+            updateRawDataStream(data, timestamp) {
+                const streamEntry = `[${timestamp}] Focus Update:
+    Instantaneous: ${data.instantaneous}
+    Cumulative: ${data.cumulative}
+    Active App: ${data.activeApp}
+    Window Title: ${data.windowTitle || 'Unknown'}
+    URL: ${data.url || 'N/A'}
+    Keystroke Rate: ${data.keystrokeRate}/min
+    Switch Rate: ${data.switchRate}/min
+    Context: ${data.context}
+    AI Insight: ${data.aiInsight}
+
+`;
+                this.elements.rawDataStream.textContent = streamEntry + this.elements.rawDataStream.textContent;
+                
+                // Keep only last 50 entries
+                const lines = this.elements.rawDataStream.textContent.split('\n');
+                if (lines.length > 500) {
+                    this.elements.rawDataStream.textContent = lines.slice(0, 500).join('\n');
+                }
+            }
+
+            updateCalculations(data) {
+                // Simulate calculation breakdown
+                const keystrokeScore = Math.min(Math.round((data.keystrokeRate || 0) / 2), 100);
+                const focusScore = Math.max(100 - (data.switchRate || 0) * 10, 0);
+                const activeScore = Math.round((data.focusRatio || 0) * 100);
+                const sessionScore = Math.min(Math.round(this.updateCount * 2), 100);
+                
+                document.getElementById('calcKeystrokeScore').textContent = keystrokeScore;
+                document.getElementById('calcFocusScore').textContent = focusScore;
+                document.getElementById('calcActiveScore').textContent = activeScore;
+                document.getElementById('calcSessionScore').textContent = sessionScore;
+            }
+
+            updateAIAnalysis(data) {
+                const analysisContainer = document.getElementById('aiAnalysis');
+                const analysis = document.createElement('div');
+                analysis.style.cssText = `
+                    background: var(--glass-bg);
+                    border: 1px solid var(--glass-border);
+                    border-radius: var(--border-radius-sm);
+                    padding: 16px;
+                    margin-bottom: 12px;
+                `;
+                analysis.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 8px;">AI Analysis</div>
+                    <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">${data.aiInsight || 'No AI analysis available'}</div>
+                    <div style="font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">Multiplier: ${data.aiMultiplier || 'N/A'} | Context: ${data.context || 'N/A'}</div>
+                `;
+                
+                analysisContainer.insertBefore(analysis, analysisContainer.firstChild);
+                
+                // Keep only last 10 analyses
+                while (analysisContainer.children.length > 10) {
+                    analysisContainer.removeChild(analysisContainer.lastChild);
+                }
+            }
+
+            updateLiveActivityFeed(data, timestamp) {
+                const feedContainer = document.getElementById('liveActivityFeed');
+                const feedEntry = document.createElement('div');
+                feedEntry.style.cssText = `
+                    background: var(--glass-bg);
+                    border: 1px solid var(--glass-border);
+                    border-radius: var(--border-radius-sm);
+                    padding: 12px;
+                    margin-bottom: 8px;
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 12px;
+                    animation: slideInRight 0.3s ease-out;
+                `;
+                
+                const isSwitch = this.lastApp && this.lastApp !== data.activeApp;
+                const switchIndicator = isSwitch ? '🔄' : '📱';
+                
+                feedEntry.innerHTML = `
+                    <div style="color: var(--text-primary); margin-bottom: 4px;">
+                        ${switchIndicator} [${new Date(timestamp).toLocaleTimeString()}] ${data.activeApp}
+                    </div>
+                    <div style="color: var(--text-secondary);">
+                        ${data.windowTitle || 'Unknown Window'} | ${data.url ? `🌐 ${data.url}` : 'No URL'}
+                    </div>
+                    <div style="color: var(--text-muted); font-size: 11px; margin-top: 4px;">
+                        Score: ${data.instantaneous} | Context: ${data.context}
+                    </div>
+                `;
+                
+                feedContainer.insertBefore(feedEntry, feedContainer.firstChild);
+                
+                // Keep only last 15 entries
+                while (feedContainer.children.length > 15) {
+                    feedContainer.removeChild(feedContainer.lastChild);
+                }
+            }
+
+            updateActivityLog(data, timestamp) {
+                const logContainer = document.getElementById('activityLog');
+                const logEntry = document.createElement('div');
+                logEntry.style.cssText = `
+                    background: var(--glass-bg);
+                    border: 1px solid var(--glass-border);
+                    border-radius: var(--border-radius-sm);
+                    padding: 12px;
+                    margin-bottom: 8px;
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 12px;
+                `;
+                logEntry.innerHTML = `
+                    <div style="color: var(--text-primary); margin-bottom: 4px;">
+                        [${timestamp}] ${data.activeApp} - ${data.windowTitle || 'Unknown Window'}
+                    </div>
+                    <div style="color: var(--text-secondary);">
+                        URL: ${data.url || 'N/A'} | Score: ${data.instantaneous} | Context: ${data.context}
+                    </div>
+                `;
+                
+                logContainer.insertBefore(logEntry, logContainer.firstChild);
+                
+                // Keep only last 20 entries
+                while (logContainer.children.length > 20) {
+                    logContainer.removeChild(logContainer.lastChild);
+                }
+            }
+        }
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.debug-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(`${tabName}-tab`).style.display = 'block';
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        function clearData() {
+            if (confirm('Are you sure you want to clear all debug data?')) {
+                document.getElementById('rawDataStream').textContent = 'Data cleared...\n';
+                document.getElementById('aiAnalysis').innerHTML = '<p>AI analysis cleared...</p>';
+                document.getElementById('activityLog').innerHTML = '<p>Activity log cleared...</p>';
+            }
+        }
+
+        function exportData() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                rawData: document.getElementById('rawDataStream').textContent,
+                systemInfo: {
+                    sessionDuration: document.getElementById('sessionDuration').textContent,
+                    updateCount: debugConsole.updateCount,
+                    errorCount: debugConsole.errorCount
+                }
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `focusai-debug-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function refreshData() {
+            console.log('Refreshing debug data...');
+            // Trigger a refresh
+        }
+
+        // Initialize debug console when page loads
+        let debugConsole;
+        document.addEventListener('DOMContentLoaded', () => {
+            debugConsole = new DebugConsole();
+        });
+    </script>
+</body>
+</html>
