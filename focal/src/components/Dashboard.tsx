@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FocusData } from "../types/ipc";
-import { fetchAllScores } from "../utils/database";
+import { fetchAllScores, fetchScore } from "../utils/database";
 import "./Dashboard.css";
 
 interface Activity {
@@ -22,8 +22,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 	const [cumulativeScore, setCumulativeScore] = useState<number>(0);
 	const [instantaneousContext, setInstantaneousContext] = useState<string>("Calculating...");
 	const [cumulativeContext, setCumulativeContext] = useState<string>("Building momentum...");
-	const [gardenPlant, setGardenPlant] = useState<string>("🌱");
-	const [gardenName, setGardenName] = useState<string>("Seedling");
+	// Garden UI removed from dashboard; keep future-proofed variables commented out
+	// const [gardenPlant, setGardenPlant] = useState<string>("🌱");
+	// const [gardenName, setGardenName] = useState<string>("Seedling");
 	const [activityHistory, setActivityHistory] = useState<Activity[]>([]);
 	const [insights, setInsights] = useState<Array<{ text: string; timestamp: number }>>([]);
 	const [sessionActive, setSessionActive] = useState<boolean>(false);
@@ -72,10 +73,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 			setCumulativeContext("Session average");
 			updateScoreCircle("cumulativeCircle", data.cumulative);
 
-			// Update garden
-			const level = Math.min(Math.floor(data.cumulative / 12.5), 7);
-			setGardenPlant(gardenLevels[level]);
-			setGardenName(gardenNames[level]);
+			// Garden UI removed from dashboard
 
 			// Update activity feed
 			const activity: Activity = {
@@ -121,6 +119,45 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 		};
 	}, [updateDashboard]);
 
+	// Fetch all-time total score from DB on mount (and update circle)
+	useEffect(() => {
+		let isMounted = true;
+		const loadDbTotal = async () => {
+			try {
+				const total = await fetchScore();
+				if (isMounted && typeof total === "number") {
+					setCumulativeScore(total);
+					setCumulativeContext("All-time total");
+					updateScoreCircle("cumulativeCircle", total);
+				}
+			} catch (_err) {
+				// non-fatal
+			}
+		};
+		loadDbTotal();
+		return () => {
+			isMounted = false;
+		};
+	}, []);
+
+	// When session stops, refresh DB total to ensure UI matches persisted value
+	useEffect(() => {
+		if (!sessionActive) {
+			(async () => {
+				try {
+					const total = await fetchScore();
+					if (typeof total === "number") {
+						setCumulativeScore(total);
+						setCumulativeContext("All-time total");
+						updateScoreCircle("cumulativeCircle", total);
+					}
+				} catch (_err) {
+					// ignore
+				}
+			})();
+		}
+	}, [sessionActive]);
+
 	useEffect(() => {
 		if (!sessionActive || !sessionStartTime) return;
 
@@ -157,10 +194,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 		setSessionStartTime(null);
 		ipcRenderer.send("stop-session");
 		console.log("Focus session stopped");
-	};
-
-	const openDebugPage = () => {
-		navigate("/debug");
 	};
 
 	const trimmedUserId = useCallback((uid: string) => {
@@ -304,64 +337,44 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 						</div>
 					</div>
 
-					<div className="nav-section">
-						<div className="nav-title">Tools</div>
-						<div className="nav-item">
-							<div className="nav-icon">⚙️</div>
-							<div className="nav-label">Settings</div>
-						</div>
-						<div className="nav-item">
-							<div className="nav-icon">🎯</div>
-							<div className="nav-label">Goals</div>
-						</div>
-						<div className="nav-item">
-							<div className="nav-icon">💡</div>
-							<div className="nav-label">Insights</div>
-						</div>
-						<div className="nav-item" onClick={openDebugPage}>
-							<div className="nav-icon">🔧</div>
-							<div className="nav-label">Debug Console</div>
-						</div>
-					</div>
-
-					<div className="nav-section">
-						<div className="nav-title">Insights</div>
-						<div className="nav-item">
-							<div className="nav-icon">🎯</div>
-							<div className="nav-label">Goals</div>
-						</div>
-						<div className="nav-item">
-							<div className="nav-icon">📊</div>
-							<div className="nav-label">Statistics</div>
-						</div>
-						<div className="nav-item">
-							<div className="nav-icon">🔍</div>
-							<div className="nav-label">Insights</div>
-						</div>
+					{/* Sidebar footer */}
+					<div className="sidebar-footer">
+						{onSignOut && (
+							<button className="btn btn-danger sidebar-signout" onClick={onSignOut}>
+								Sign Out
+							</button>
+						)}
 					</div>
 				</nav>
 			</div>
 
 			{/* Main Content */}
 			<div className="main-content">
-				<div className="dashboard-header">
-					<div>
-						<h1 className="dashboard-title">Productivity Dashboard</h1>
-						<p className="dashboard-subtitle">Track your focus and grow your digital garden</p>
+				<h1 className="session-title">Session Control</h1>
+
+				{/* Hero Banner */}
+				<div className={`hero-banner ${sessionActive ? "hero-active" : ""}`}>
+					<div className="hero-content">
+						<h1 className="hero-title">{sessionActive ? "You're focusing" : "Ready to Focus?"}</h1>
+						<div className="hero-actions">
+							{!sessionActive ? (
+								<button className="btn-hero btn-hero-primary" onClick={startSession}>
+									Start Focus Session
+								</button>
+							) : (
+								<button className="btn-hero btn-hero-danger" onClick={stopSession}>
+									Stop Session
+								</button>
+							)}
+						</div>
+						{sessionActive && (
+							<div className="hero-status">
+								<span className="status-dot"></span>
+								Live • {sessionDuration}
+							</div>
+						)}
 					</div>
-					{onSignOut && (
-						<button
-							className="btn btn-secondary"
-							onClick={onSignOut}
-							style={{
-								padding: "10px 20px",
-								fontSize: "14px",
-								minWidth: "120px",
-							}}
-						>
-							Sign Out
-						</button>
-					)}
+					<div className="hero-glow" />
 				</div>
 
 				{/* Premium Cards Grid */}
@@ -408,7 +421,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 								{sessionActive && <div className="score-pulse"></div>}
 							</div>
 							<div>
-								<div className="score-label">{sessionActive ? "Session Total" : "Session Average"}</div>
+								<div className="score-label">{sessionActive ? "Live Total" : "All-time Total"}</div>
 								<div className="score-label">{cumulativeContext}</div>
 								{sessionActive && (
 									<div className="score-status">
@@ -420,17 +433,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 						</div>
 					</div>
 
-					{/* Focus Garden Card */}
-					<div className="card garden-card">
-						<div className="card-header">
-							<h3 className="card-title">Focus Garden</h3>
-							<div className="card-icon">🌱</div>
-						</div>
-						<div className="garden-container">
-							<div className="garden-plant">{gardenPlant}</div>
-							<div className="garden-level">{gardenName}</div>
-						</div>
-					</div>
+					{/* Focus Garden card removed per request */}
 
 					{/* Activity Feed Card */}
 					<div className="card activity-card">
@@ -532,114 +535,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 						</div>
 					</div>
 
-					{/* Session Control Card */}
-					<div className="card">
-						<div className="card-header">
-							<h3 className="card-title">Session Control</h3>
-							<div className="card-icon">🎯</div>
-						</div>
-						<div
-							style={{
-								display: "flex",
-								flexDirection: "column",
-								gap: "12px",
-								position: "relative",
-								zIndex: 1,
-							}}
-						>
-							{!sessionActive ? (
-								<button className="btn btn-primary" onClick={startSession}>
-									Start Focus Session
-								</button>
-							) : (
-								<>
-									<div>
-										<div
-											style={{
-												display: "flex",
-												justifyContent: "space-between",
-												alignItems: "center",
-												marginBottom: "8px",
-											}}
-										>
-											<span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-												Session Duration:
-											</span>
-											<span
-												style={{
-													fontFamily: "'JetBrains Mono', monospace",
-													fontWeight: 600,
-													color: "var(--text-primary)",
-												}}
-											>
-												{sessionDuration}
-											</span>
-										</div>
-										<div
-											style={{
-												display: "flex",
-												justifyContent: "space-between",
-												alignItems: "center",
-												marginBottom: "8px",
-											}}
-										>
-											<span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-												Current Focus:
-											</span>
-											<span
-												style={{
-													fontFamily: "'JetBrains Mono', monospace",
-													fontWeight: 600,
-													color: "var(--accent)",
-												}}
-											>
-												{instantaneousScore.toFixed(0)}
-											</span>
-										</div>
-										<div
-											style={{
-												display: "flex",
-												justifyContent: "space-between",
-												alignItems: "center",
-												marginBottom: "8px",
-											}}
-										>
-											<span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-												Session Total:
-											</span>
-											<span
-												style={{
-													fontFamily: "'JetBrains Mono', monospace",
-													fontWeight: 600,
-													color: "var(--success)",
-												}}
-											>
-												{cumulativeScore.toFixed(0)}
-											</span>
-										</div>
-										<div
-											style={{
-												display: "flex",
-												justifyContent: "space-between",
-												alignItems: "center",
-											}}
-										>
-											<span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-												Status:
-											</span>
-											<span style={{ color: "#43e97b", fontWeight: 600 }}>Active</span>
-										</div>
-									</div>
-									<button className="btn btn-danger" onClick={stopSession}>
-										Stop Session
-									</button>
-								</>
-							)}
-							<button className="btn btn-secondary" onClick={openDebugPage}>
-								Debug Console
-							</button>
-						</div>
-					</div>
+					{/* Removed separate Session Control card; controls moved to hero */}
 				</div>
 			</div>
 		</div>
