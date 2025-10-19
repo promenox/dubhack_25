@@ -133,10 +133,10 @@ class MainApp {
 			resizable: !isWindows,
 			movable: true,
 			alwaysOnTop: true,
-			skipTaskbar: true,
-			focusable: false,
-			backgroundColor: "#00000000",
-			show: false,
+			skipTaskbar: false,
+			focusable: true,
+			backgroundColor: "#1a1a1a",
+			show: true,
 			fullscreenable: false,
 			maximizable: false,
 			minimizable: false,
@@ -234,7 +234,8 @@ class MainApp {
 				enforceOverlaySize();
 			}
 			console.log("Overlay window bounds:", this.overlayWindow?.getBounds());
-			this.overlayWindow?.showInactive();
+			// Window is already shown, just ensure it's on top
+			this.overlayWindow?.setAlwaysOnTop(true, "screen-saver");
 		});
 
 		// After content loads, force HTML/BODY to be transparent to honor window transparency
@@ -274,8 +275,12 @@ class MainApp {
 
 		if (this.overlayWindow.isMinimized()) this.overlayWindow.restore();
 
-		this.overlayWindow.showInactive();
-		console.log("Overlay window shown");
+		// Ensure window is visible and on top
+		this.overlayWindow.setAlwaysOnTop(true, "screen-saver");
+		this.overlayWindow.show();
+		this.overlayWindow.focus();
+		this.overlayWindow.moveTop();
+		console.log("Overlay window shown and focused");
 		console.log("Final overlay window bounds:", this.overlayWindow.getBounds());
 
 		// Send start event with timestamp after load

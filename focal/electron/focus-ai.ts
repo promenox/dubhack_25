@@ -210,20 +210,17 @@ Respond with ONLY this JSON format:
 		const aiContext = await this.getAIContextCategory(activityWindow);
 		console.log(`🤖 AI Classification: ${aiContext.category} (${(aiContext.confidence * 100).toFixed(0)}%)`);
 
-		// Calculate weighted score using new system
+		// Calculate weighted score using new system (duration removed)
 		const windowDurationMinutes = activityWindow.duration / 60000;
 		const switchRate = activityWindow.switchRate || 0;
 
-		// 1. Duration Score (10% weight) - linear score based on actual duration
-		const durationScore = Math.min(windowDurationMinutes * 20, 100);
-
-		// 2. Switching Score (10% weight) - penalty above 0.5 switches/min
+		// 1. Switching Score (20% weight) - penalty above 0.5 switches/min
 		const switchingScore = Math.max(0, 100 - 40 * (switchRate - 0.5));
 
-		// 3. App Context Score (45% weight) - MAJOR factor
+		// 2. App Context Score (50% weight) - MAJOR factor
 		const appContextScore = this.calculateAppContextScore(activityWindow);
 
-		// 4. Title/URL Context Score (35% weight) - MAJOR factor
+		// 3. Title/URL Context Score (30% weight) - MAJOR factor
 		const titleContextScore = this.calculateTitleContextScore(activityWindow);
 
 		// AI Multiplier based on classification
@@ -237,9 +234,8 @@ Respond with ONLY this JSON format:
 
 		const aiMultiplier = aiMultipliers[aiContext.category] || 1.0;
 
-		// Weighted total score (0-100 scale)
-		const totalScore =
-			0.1 * durationScore + 0.1 * switchingScore + 0.45 * appContextScore + 0.35 * titleContextScore;
+		// Weighted total score (0-100 scale) - duration removed, weights redistributed
+		const totalScore = 0.2 * switchingScore + 0.5 * appContextScore + 0.3 * titleContextScore;
 
 		// Apply AI multiplier
 		const aiAdjustedScore = totalScore * aiMultiplier;
@@ -251,10 +247,9 @@ Respond with ONLY this JSON format:
 		const scaledScore = (aiAdjustedScore / 1.8) * hoursActive;
 
 		console.log(`🔍 Weighted Score Calculation:`);
-		console.log(`  - Duration: ${windowDurationMinutes.toFixed(2)}min → ${durationScore.toFixed(1)} pts (10%)`);
-		console.log(`  - Switching: ${switchRate.toFixed(2)}/min → ${switchingScore.toFixed(1)} pts (10%)`);
-		console.log(`  - App Context: ${appContextScore.toFixed(1)} pts (45%)`);
-		console.log(`  - Title Context: ${titleContextScore.toFixed(1)} pts (35%)`);
+		console.log(`  - Switching: ${switchRate.toFixed(2)}/min → ${switchingScore.toFixed(1)} pts (20%)`);
+		console.log(`  - App Context: ${appContextScore.toFixed(1)} pts (50%)`);
+		console.log(`  - Title Context: ${titleContextScore.toFixed(1)} pts (30%)`);
 		console.log(`  - Total Score: ${totalScore.toFixed(1)}/100`);
 		console.log(`  - AI Multiplier: ${aiMultiplier.toFixed(1)}x (${aiContext.category})`);
 		console.log(`  - AI Adjusted: ${aiAdjustedScore.toFixed(1)}`);

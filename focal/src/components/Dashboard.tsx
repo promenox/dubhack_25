@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import type { FocusData } from "../types/ipc";
-import { fetchAllScores } from "../utils/database";
 import "./Dashboard.css";
 
 interface Activity {
@@ -16,237 +14,150 @@ interface DashboardProps {
 	onSignOut?: () => void;
 }
 
-const Dashboard = ({ onSignOut }: DashboardProps) => {
+const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 	const navigate = useNavigate();
 	const [instantaneousScore, setInstantaneousScore] = useState<number>(0);
 	const [cumulativeScore, setCumulativeScore] = useState<number>(0);
 	const [instantaneousContext, setInstantaneousContext] = useState<string>("Calculating...");
 	const [cumulativeContext, setCumulativeContext] = useState<string>("Building momentum...");
-	const [gardenPlant, setGardenPlant] = useState<string>("🌱");
-	const [gardenName, setGardenName] = useState<string>("Seedling");
 	const [activityHistory, setActivityHistory] = useState<Activity[]>([]);
 	const [insights, setInsights] = useState<Array<{ text: string; timestamp: number }>>([]);
 	const [sessionActive, setSessionActive] = useState<boolean>(false);
 	const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
 	const [sessionDuration, setSessionDuration] = useState<string>("00:00:00");
-	const [leaderboard, setLeaderboard] = useState<Array<{ userId: string; score: number; username?: string }>>([]);
-	const [loadingLeaderboard, setLoadingLeaderboard] = useState<boolean>(false);
-	const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
-
-	const gardenLevels = ["🌱", "🌿", "🌳", "🌸", "🌺", "🌻", "🌷", "🌹"];
-	const gardenNames = [
-		"Seedling",
-		"Sprout",
-		"Sapling",
-		"Budding",
-		"Blooming",
-		"Flowering",
-		"Thriving",
-		"Masterpiece",
-	];
 
 	const updateScoreCircle = (circleId: string, score: number) => {
 		const circle = document.getElementById(circleId);
 		if (!circle) return;
 
 		const percentage = Math.min(score, 100);
-		const degrees = (percentage / 100) * 360;
+		const circumference = 2 * Math.PI * 45; // radius = 45
+		const offset = circumference - (percentage / 100) * circumference;
 
-		circle.style.background = `conic-gradient(
-      var(--success-gradient) ${degrees}deg,
-      var(--glass-border) ${degrees}deg
-    )`;
+		circle.style.strokeDasharray = `${circumference} ${circumference}`;
+		circle.style.strokeDashoffset = offset.toString();
 	};
 
-	const updateDashboard = useCallback(
-		(data: FocusData) => {
-			console.log("Dashboard update:", data);
-
+	const handleFocusUpdate = useCallback(
+		(_e: any, data: any) => {
 			// Update instantaneous score
-			setInstantaneousScore(data.instantaneous);
-			setInstantaneousContext(data.context || "Calculating...");
-			updateScoreCircle("instantaneousCircle", data.instantaneous);
+			setInstantaneousScore(data.instantaneous || 0);
+			setInstantaneousContext(data.context || "Analyzing...");
+			updateScoreCircle("instantaneousCircle", data.instantaneous || 0);
 
 			// Update cumulative score
 			setCumulativeScore(data.cumulative);
 			setCumulativeContext("Session average");
 			updateScoreCircle("cumulativeCircle", data.cumulative);
 
-			// Update garden
-			const level = Math.min(Math.floor(data.cumulative / 12.5), 7);
-			setGardenPlant(gardenLevels[level]);
-			setGardenName(gardenNames[level]);
-
 			// Update activity feed
 			const activity: Activity = {
 				app: data.activeApp || "Unknown",
 				context: data.context,
 				url: data.url || "",
-				timestamp: new Date(data.timestamp),
-				type: getActivityType(data.activeApp || "", data.url || ""),
+				timestamp: new Date(),
+				type: "focus",
 			};
 
 			setActivityHistory((prev) => {
-				const newHistory = [activity, ...prev];
-				return newHistory.slice(0, 10);
+				const newHistory = [activity, ...prev.slice(0, 9)];
+				return newHistory;
 			});
 
-			// Update AI insights
+			// Update insights
 			setInsights((prev) => {
 				const newInsights = [
 					{
-						text: data.aiInsight || "Analyzing your productivity patterns...",
-						timestamp: data.timestamp,
+						text: `Focus score: ${(data.instantaneous || 0).toFixed(1)} - ${data.context || "Analyzing activity"}`,
+						timestamp: Date.now(),
 					},
 					...prev,
 				];
 				return newInsights.slice(0, 5);
 			});
 		},
-		[gardenLevels, gardenNames]
+		[]
 	);
 
 	useEffect(() => {
 		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
 		if (!ipcRenderer) return;
 
-		const handleFocusUpdate = (_event: any, data: FocusData) => {
-			updateDashboard(data);
-		};
-
 		ipcRenderer.on("focus-update", handleFocusUpdate);
 
 		return () => {
 			ipcRenderer.removeListener("focus-update", handleFocusUpdate);
 		};
-	}, [updateDashboard]);
+	}, [handleFocusUpdate]);
 
 	useEffect(() => {
-		if (!sessionActive || !sessionStartTime) return;
+		let interval: NodeJS.Timeout | null = null;
 
-		const timer = setInterval(() => {
-			const duration = Date.now() - sessionStartTime;
-			const hours = Math.floor(duration / 3600000);
-			const minutes = Math.floor((duration % 3600000) / 60000);
-			const seconds = Math.floor((duration % 60000) / 1000);
+		if (sessionActive && sessionStartTime) {
+			interval = setInterval(() => {
+				const now = Date.now();
+				const elapsed = now - sessionStartTime;
+				const totalSeconds = Math.floor(elapsed / 1000);
+				const hours = Math.floor(totalSeconds / 3600);
+				const minutes = Math.floor((totalSeconds % 3600) / 60);
+				const seconds = totalSeconds % 60;
 
-			const timeString = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
-				.toString()
-				.padStart(2, "0")}`;
-			setSessionDuration(timeString);
-		}, 1000);
+				setSessionDuration(
+					`${hours.toString().padStart(2, "0")}:${minutes
+						.toString()
+						.padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+				);
+			}, 1000);
+		}
 
-		return () => clearInterval(timer);
+		return () => {
+			if (interval) clearInterval(interval);
+		};
 	}, [sessionActive, sessionStartTime]);
 
 	const startSession = () => {
-		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
-		if (!ipcRenderer) return;
-
 		setSessionActive(true);
 		setSessionStartTime(Date.now());
-		ipcRenderer.send("start-session");
-		console.log("Focus session started");
+		setSessionDuration("00:00:00");
+		
+		// Send IPC event to main process to start session and show overlay
+		if (window.ipcRenderer) {
+			window.ipcRenderer.send("start-session");
+		}
 	};
 
 	const stopSession = () => {
-		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
-		if (!ipcRenderer) return;
-
 		setSessionActive(false);
 		setSessionStartTime(null);
-		ipcRenderer.send("stop-session");
-		console.log("Focus session stopped");
+		setSessionDuration("00:00:00");
+		
+		// Send IPC event to main process to stop session
+		if (window.ipcRenderer) {
+			window.ipcRenderer.send("stop-session");
+		}
 	};
 
 	const openDebugPage = () => {
 		navigate("/debug");
 	};
 
-	const trimmedUserId = useCallback((uid: string) => {
-		if (!uid) return "unknown";
-		const start = uid.slice(0, 6);
-		const end = uid.slice(-4);
-		return `${start}...${end}`;
-	}, []);
-
-	const refreshLeaderboard = useCallback(async () => {
-		setLoadingLeaderboard(true);
-		setLeaderboardError(null);
-		try {
-			const scores = await fetchAllScores();
-			if (scores) {
-				// Ensure sorted desc by score
-				scores.sort((a, b) => b.score - a.score);
-				setLeaderboard(scores);
-			}
-		} catch (e: any) {
-			setLeaderboardError("Failed to load leaderboard");
-		} finally {
-			setLoadingLeaderboard(false);
-		}
-	}, []);
-
-	useEffect(() => {
-		// Load on mount
-		refreshLeaderboard();
-	}, [refreshLeaderboard]);
-
-	const getActivityType = (app: string, url: string) => {
-		const appLower = app.toLowerCase();
-		const urlLower = url.toLowerCase();
-
-		if (appLower.includes("cursor") || appLower.includes("code") || appLower.includes("vs code")) {
-			return "coding";
-		} else if (appLower.includes("chrome") || appLower.includes("safari")) {
-			if (
-				urlLower.includes("github.com") ||
-				urlLower.includes("stackoverflow.com") ||
-				urlLower.includes("docs.")
-			) {
-				return "coding";
-			} else if (
-				urlLower.includes("youtube.com") ||
-				urlLower.includes("netflix.com") ||
-				urlLower.includes("twitch.tv")
-			) {
-				return "media";
-			} else if (urlLower.includes("gmail.com") || urlLower.includes("outlook.com")) {
-				return "communication";
-			} else if (urlLower.includes("chatgpt.com") || urlLower.includes("claude.ai")) {
-				return "ai-tools";
-			}
-			return "browsing";
-		} else if (appLower.includes("notion") || appLower.includes("obsidian")) {
-			return "productivity";
-		} else if (appLower.includes("discord") || appLower.includes("slack")) {
-			return "communication";
-		} else if (appLower.includes("spotify") || appLower.includes("music")) {
-			return "media";
-		}
-		return "other";
-	};
-
 	const getActivityIcon = (type: string) => {
 		const icons: Record<string, string> = {
-			coding: "💻",
-			media: "🎵",
-			communication: "💬",
-			"ai-tools": "🤖",
-			browsing: "🌐",
-			productivity: "📝",
-			other: "⚙️",
+			focus: "🎯",
+			productive: "💻",
+			distracted: "📱",
+			learning: "📚",
+			other: "⚡",
 		};
-		return icons[type] || "⚙️";
+		return icons[type] || "⚡";
 	};
 
 	const getActivityGradient = (type: string) => {
 		const gradients: Record<string, string> = {
-			coding: "var(--success-gradient)",
-			media: "var(--secondary-gradient)",
-			communication: "var(--warning-gradient)",
-			"ai-tools": "var(--primary-gradient)",
-			browsing: "var(--glass-border)",
+			focus: "var(--primary-gradient)",
+			productive: "var(--success-gradient)",
+			distracted: "var(--danger-gradient)",
+			learning: "var(--warning-gradient)",
 			productivity: "var(--success-gradient)",
 			other: "var(--glass-border)",
 		};
@@ -276,52 +187,66 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 
 	return (
 		<div className="app-container">
-			{/* Premium Sidebar */}
+			{/* Sidebar */}
 			<div className="sidebar">
 				<div className="logo">
-					<div className="logo-icon"></div>
+					<div className="logo-icon">🧠</div>
 					<div className="logo-text">FocusAI</div>
 				</div>
 
-				<div className="nav-section">
-					<div className="nav-title">Dashboard</div>
-					<div className="nav-item active">
-						<div className="nav-icon">📊</div>
-						<div className="nav-label">Overview</div>
+				<nav className="nav">
+					<div className="nav-section">
+						<div className="nav-title">Main</div>
+						<div className="nav-item active">
+							<div className="nav-icon">📊</div>
+							<div className="nav-label">Dashboard</div>
+						</div>
+						<div className="nav-item" onClick={() => navigate("/garden")}>
+							<div className="nav-icon">🌱</div>
+							<div className="nav-label">Garden</div>
+						</div>
+						<div className="nav-item">
+							<div className="nav-icon">📈</div>
+							<div className="nav-label">Analytics</div>
+						</div>
+						<div className="nav-item">
+							<div className="nav-icon">🏆</div>
+							<div className="nav-label">Leaderboard</div>
+						</div>
 					</div>
-					<div className="nav-item" onClick={() => navigate("/garden")}>
-						<div className="nav-icon">🌱</div>
-						<div className="nav-label">Garden</div>
-					</div>
-					<div className="nav-item">
-						<div className="nav-icon">📈</div>
-						<div className="nav-label">Analytics</div>
-					</div>
-					<div className="nav-item" onClick={() => navigate("/leaderboard")}>
-						<div className="nav-icon">🏆</div>
-						<div className="nav-label">Leaderboard</div>
-					</div>
-				</div>
 
-				<div className="nav-section">
-					<div className="nav-title">Tools</div>
-					<div className="nav-item">
-						<div className="nav-icon">⚙️</div>
-						<div className="nav-label">Settings</div>
+					<div className="nav-section">
+						<div className="nav-title">Tools</div>
+						<div className="nav-item" onClick={() => navigate("/debug")}>
+							<div className="nav-icon">🔧</div>
+							<div className="nav-label">Debug Console</div>
+						</div>
+						<div className="nav-item">
+							<div className="nav-icon">⚙️</div>
+							<div className="nav-label">Settings</div>
+						</div>
+						<div className="nav-item">
+							<div className="nav-icon">📋</div>
+							<div className="nav-label">Reports</div>
+						</div>
 					</div>
-					<div className="nav-item">
-						<div className="nav-icon">🎯</div>
-						<div className="nav-label">Goals</div>
+
+					<div className="nav-section">
+						<div className="nav-title">Insights</div>
+						<div className="nav-item">
+							<div className="nav-icon">🎯</div>
+							<div className="nav-label">Goals</div>
+						</div>
+						<div className="nav-item">
+							<div className="nav-icon">📊</div>
+							<div className="nav-label">Statistics</div>
+						</div>
+						<div className="nav-item">
+							<div className="nav-icon">🔍</div>
+							<div className="nav-label">Insights</div>
+						</div>
 					</div>
-					<div className="nav-item">
-						<div className="nav-icon">💡</div>
-						<div className="nav-label">Insights</div>
-					</div>
-					<div className="nav-item" onClick={openDebugPage}>
-						<div className="nav-icon">🔧</div>
-						<div className="nav-label">Debug Console</div>
-					</div>
-				</div>
+				</nav>
 			</div>
 
 			{/* Main Content */}
@@ -332,232 +257,170 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 						<p className="dashboard-subtitle">Track your focus and grow your digital garden</p>
 					</div>
 					{onSignOut && (
-						<button
-							className="btn btn-secondary"
-							onClick={onSignOut}
-							style={{
-								padding: "10px 20px",
-								fontSize: "14px",
-								minWidth: "120px",
-							}}
-						>
+						<button onClick={onSignOut}>
 							Sign Out
 						</button>
 					)}
 				</div>
 
-				{/* Premium Cards Grid */}
-				<div className="cards-grid">
-					{/* Instantaneous Score Card */}
-					<div className="card score-card">
-						<div className="card-header">
-							<h3 className="card-title">Instantaneous Focus</h3>
-							<div className="card-icon">⚡</div>
+				{/* Main Dashboard Sections */}
+				<div className="dashboard-sections">
+					{/* Focus Metrics Section */}
+					<div className="section">
+						<div className="section-header">
+							<h2 className="section-title">Focus Metrics</h2>
+							<div className="section-subtitle">Real-time productivity tracking</div>
 						</div>
-						<div className="score-display">
-							<div className="score-circle" id="instantaneousCircle">
-								<div className="score-value">{instantaneousScore.toFixed(0)}</div>
-							</div>
-							<div>
-								<div className="score-label">Current Score</div>
-								<div className="score-label">{instantaneousContext}</div>
-							</div>
-						</div>
-					</div>
-
-					{/* Cumulative Score Card */}
-					<div className="card score-card">
-						<div className="card-header">
-							<h3 className="card-title">Cumulative Progress</h3>
-							<div className="card-icon">📈</div>
-						</div>
-						<div className="score-display">
-							<div className="score-circle" id="cumulativeCircle">
-								<div className="score-value">{cumulativeScore.toFixed(0)}</div>
-							</div>
-							<div>
-								<div className="score-label">Session Average</div>
-								<div className="score-label">{cumulativeContext}</div>
-							</div>
-						</div>
-					</div>
-
-					{/* Focus Garden Card */}
-					<div className="card garden-card">
-						<div className="card-header">
-							<h3 className="card-title">Focus Garden</h3>
-							<div className="card-icon">🌱</div>
-						</div>
-						<div className="garden-container">
-							<div className="garden-plant">{gardenPlant}</div>
-							<div className="garden-level">{gardenName}</div>
-						</div>
-					</div>
-
-					{/* Activity Feed Card */}
-					<div className="card activity-card">
-						<div className="card-header">
-							<h3 className="card-title">Recent Activity</h3>
-							<div className="card-icon">🔄</div>
-						</div>
-						<div className="activity-feed">
-							{activityHistory.length === 0 ? (
-								<div className="activity-item">
-									<div className="activity-icon" style={{ background: "var(--success-gradient)" }}>
-										💻
-									</div>
-									<div className="activity-content">
-										<div className="activity-text">Starting FocusAI session</div>
-										<div className="activity-time">Just now</div>
-									</div>
+						<div className="metrics-grid">
+							<div className="metric-card primary">
+								<div className="metric-header">
+									<div className="metric-icon">⚡</div>
+									<div className="metric-label">Current Focus</div>
 								</div>
-							) : (
-								activityHistory.map((activity, index) => (
-									<div key={index} className="activity-item">
-										<div
-											className="activity-icon"
-											style={{ background: getActivityGradient(activity.type) }}
-										>
-											{getActivityIcon(activity.type)}
-										</div>
-										<div className="activity-content">
-											<div className="activity-text">
-												{activity.context || `Using ${activity.app}`}
-												{activity.url && ` - ${getDomainFromUrl(activity.url)}`}
-											</div>
-											<div className="activity-time">{formatTime(activity.timestamp)}</div>
-										</div>
-									</div>
-								))
-							)}
-						</div>
-					</div>
-
-					{/* AI Insights Card */}
-					<div className="card insights-card">
-						<div className="card-header">
-							<h3 className="card-title">AI Insights</h3>
-							<div className="card-icon">🤖</div>
-						</div>
-						<div>
-							{insights.length === 0 ? (
-								<div className="insight-item">
-									<div className="insight-text">
-										Welcome to FocusAI! I'm analyzing your productivity patterns...
-									</div>
-									<div className="insight-timestamp">Initializing</div>
+								<div className="metric-value">{instantaneousScore.toFixed(0)}</div>
+								<div className="metric-description">{instantaneousContext}</div>
+							</div>
+							<div className="metric-card secondary">
+								<div className="metric-header">
+									<div className="metric-icon">📈</div>
+									<div className="metric-label">Session Total</div>
 								</div>
-							) : (
-								insights.map((insight, index) => (
-									<div key={index} className="insight-item">
-										<div className="insight-text">{insight.text}</div>
-										<div className="insight-timestamp">
-											{new Date(insight.timestamp).toLocaleTimeString()}
-										</div>
-									</div>
-								))
-							)}
-						</div>
-					</div>
-
-					{/* Leaderboard Card */}
-					<div className="card leaderboard-card">
-						<div className="card-header">
-							<h3 className="card-title">Leaderboard</h3>
-							<div className="card-icon">🏆</div>
-						</div>
-						<div className="leaderboard">
-							{loadingLeaderboard ? (
-								<div className="leaderboard-loading">Loading leaderboard...</div>
-							) : leaderboardError ? (
-								<div className="leaderboard-error">{leaderboardError}</div>
-							) : leaderboard.length === 0 ? (
-								<div className="leaderboard-empty">No scores yet</div>
-							) : (
-								<ol className="leaderboard-list">
-									{leaderboard.map((entry, index) => (
-										<li key={`${entry.userId}-${index}`} className="leaderboard-item">
-											<div className="leaderboard-rank">{index + 1}</div>
-											<div className="leaderboard-user">
-												{entry.username || trimmedUserId(entry.userId)}
-											</div>
-											<div className="leaderboard-score">{entry.score}</div>
-										</li>
-									))}
-								</ol>
-							)}
-							<div className="leaderboard-actions">
-								<button className="btn btn-secondary" onClick={refreshLeaderboard}>
-									Refresh
-								</button>
+								<div className="metric-value">{cumulativeScore.toFixed(0)}</div>
+								<div className="metric-description">{cumulativeContext}</div>
+							</div>
+							<div className="metric-card accent">
+								<div className="metric-header">
+									<div className="metric-icon">⏱️</div>
+									<div className="metric-label">Session Time</div>
+								</div>
+								<div className="metric-value">{sessionDuration}</div>
+								<div className="metric-description">{sessionActive ? "Active" : "Inactive"}</div>
 							</div>
 						</div>
 					</div>
 
-					{/* Session Control Card */}
-					<div className="card">
-						<div className="card-header">
-							<h3 className="card-title">Session Control</h3>
-							<div className="card-icon">🎯</div>
+					{/* Activity & Insights Section */}
+					<div className="section">
+						<div className="section-header">
+							<h2 className="section-title">Activity & Insights</h2>
+							<div className="section-subtitle">Recent activity and AI-powered insights</div>
 						</div>
-						<div
-							style={{
-								display: "flex",
-								flexDirection: "column",
-								gap: "12px",
-								position: "relative",
-								zIndex: 1,
-							}}
-						>
-							{!sessionActive ? (
-								<button className="btn btn-primary" onClick={startSession}>
-									Start Focus Session
-								</button>
-							) : (
-								<>
-									<div>
-										<div
-											style={{
-												display: "flex",
-												justifyContent: "space-between",
-												alignItems: "center",
-												marginBottom: "8px",
-											}}
-										>
-											<span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-												Session Duration:
-											</span>
-											<span
-												style={{
-													fontFamily: "'JetBrains Mono', monospace",
-													fontWeight: 600,
-													color: "var(--text-primary)",
-												}}
-											>
-												{sessionDuration}
-											</span>
+						<div className="insights-grid">
+							{/* Activity Feed Card */}
+							<div className="card activity-card">
+								<div className="card-header">
+									<h3 className="card-title">Recent Activity</h3>
+									<div className="card-icon">🔄</div>
+								</div>
+								<div className="activity-feed">
+									{activityHistory.length === 0 ? (
+										<div className="activity-item">
+											<div className="activity-icon" style={{ background: "var(--success-gradient)" }}>
+												💻
+											</div>
+											<div className="activity-content">
+												<div className="activity-text">Starting FocusAI session</div>
+												<div className="activity-time">Just now</div>
+											</div>
 										</div>
-										<div
-											style={{
-												display: "flex",
-												justifyContent: "space-between",
-												alignItems: "center",
-											}}
-										>
-											<span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-												Status:
-											</span>
-											<span style={{ color: "#43e97b", fontWeight: 600 }}>Active</span>
+									) : (
+										activityHistory.map((activity, index) => (
+											<div key={index} className="activity-item">
+												<div
+													className="activity-icon"
+													style={{ background: getActivityGradient(activity.type) }}
+												>
+													{getActivityIcon(activity.type)}
+												</div>
+												<div className="activity-content">
+													<div className="activity-text">
+														{activity.context || `Using ${activity.app}`}
+														{activity.url && ` - ${getDomainFromUrl(activity.url)}`}
+													</div>
+													<div className="activity-time">{formatTime(activity.timestamp)}</div>
+												</div>
+											</div>
+										))
+									)}
+								</div>
+							</div>
+
+							{/* AI Insights Card */}
+							<div className="card insights-card">
+								<div className="card-header">
+									<h3 className="card-title">AI Insights</h3>
+									<div className="card-icon">🤖</div>
+								</div>
+								<div>
+									{insights.length === 0 ? (
+										<div className="insight-item">
+											<div className="insight-text">
+												Welcome to FocusAI! I'm analyzing your productivity patterns...
+											</div>
+											<div className="insight-timestamp">Initializing</div>
 										</div>
-									</div>
-									<button className="btn btn-danger" onClick={stopSession}>
-										Stop Session
+									) : (
+										insights.map((insight, index) => (
+											<div key={index} className="insight-item">
+												<div className="insight-text">{insight.text}</div>
+												<div className="insight-timestamp">
+													{new Date(insight.timestamp).toLocaleTimeString()}
+												</div>
+											</div>
+										))
+									)}
+								</div>
+							</div>
+						</div>
+					</div>
+
+					{/* Session Control Section */}
+					<div className="section">
+						<div className="section-header">
+							<h2 className="section-title">Session Control</h2>
+							<div className="section-subtitle">Manage your focus sessions</div>
+						</div>
+						<div className="control-panel">
+							<div className="control-card">
+								<div className="control-header">
+									<div className="control-icon">🎯</div>
+									<div className="control-title">Focus Session</div>
+								</div>
+								<div className="control-content">
+									{!sessionActive ? (
+										<button className="control-button primary" onClick={startSession}>
+											Start Focus Session
+										</button>
+									) : (
+										<>
+											<div className="session-info">
+												<div className="session-stat">
+													<span className="stat-label">Duration:</span>
+													<span className="stat-value">{sessionDuration}</span>
+												</div>
+												<div className="session-stat">
+													<span className="stat-label">Status:</span>
+													<span className="stat-value active">Active</span>
+												</div>
+											</div>
+											<button className="control-button danger" onClick={stopSession}>
+												Stop Session
+											</button>
+										</>
+									)}
+								</div>
+							</div>
+							<div className="control-card">
+								<div className="control-header">
+									<div className="control-icon">🔧</div>
+									<div className="control-title">Tools</div>
+								</div>
+								<div className="control-content">
+									<button className="control-button secondary" onClick={openDebugPage}>
+										Debug Console
 									</button>
-								</>
-							)}
-							<button className="btn btn-secondary" onClick={openDebugPage}>
-								Debug Console
-							</button>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>

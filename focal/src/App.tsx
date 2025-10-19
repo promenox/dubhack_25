@@ -8,46 +8,47 @@ import Garden from "./components/Garden";
 import Leaderboard from "./components/Leaderboard";
 import Overlay from "./components/Overlay";
 import PlantOverlayWindow from "./components/PlantOverlayWindow";
-import authService from "./services/auth";
-import { initializeDatabaseAuth } from "./utils/database";
+// import authService from "./services/auth";
+// import { initializeDatabaseAuth } from "./utils/database";
 
 function App() {
-	const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-	const [isLoading, setIsLoading] = useState<boolean>(true);
+	const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+	const [isLoading, setIsLoading] = useState<boolean>(false);
 
-	useEffect(() => {
-		// Check for existing session on app startup
-		const checkAuth = async () => {
-			try {
-				await authService.getCurrentSession();
-				setIsAuthenticated(true);
+	// useEffect(() => {
+	// 	// Check for existing session on app startup
+	// 	const checkAuth = async () => {
+	// 		try {
+	// 			await authService.getCurrentSession();
+	// 			setIsAuthenticated(true);
 
-				// Initialize database auth with existing token
-				initializeDatabaseAuth();
-				console.log("🔑 Database auth initialized with existing session");
-			} catch (error) {
-				setIsAuthenticated(false);
-			} finally {
-				setIsLoading(false);
-			}
-		};
+	// 			// Initialize database auth with existing token
+	// 			initializeDatabaseAuth();
+	// 			console.log("🔑 Database auth initialized with existing session");
+	// 		} catch (error) {
+	// 			setIsAuthenticated(false);
+	// 		} finally {
+	// 			setIsLoading(false);
+	// 		}
+	// 	};
 
-		checkAuth();
-	}, []);
+	// 	checkAuth();
+	// }, []);
 
 	const handleAuthSuccess = () => {
 		setIsAuthenticated(true);
 	};
 
 	const handleSignOut = async () => {
-		try {
-			await authService.signOut();
-			setIsAuthenticated(false);
-		} catch (error) {
-			console.error("Sign out error:", error);
-			// Still set to false even if there's an error
-			setIsAuthenticated(false);
-		}
+		// try {
+		// 	await authService.signOut();
+		// 	setIsAuthenticated(false);
+		// } catch (error) {
+		// 	console.error("Sign out error:", error);
+		// 	// Still set to false even if there's an error
+		// 	setIsAuthenticated(false);
+		// }
+		setIsAuthenticated(false);
 	};
 
 	// Loading screen while checking session

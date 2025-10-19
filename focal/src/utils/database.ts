@@ -18,13 +18,8 @@ function getIpcRenderer() {
 		return (window as any).ipcRenderer;
 	}
 
-	// Try direct electron import (when nodeIntegration: true, contextIsolation: false)
-	try {
-		const { ipcRenderer } = require("electron");
-		return ipcRenderer;
-	} catch (e) {
-		return null;
-	}
+	// Return null if not available
+	return null;
 }
 
 /**
