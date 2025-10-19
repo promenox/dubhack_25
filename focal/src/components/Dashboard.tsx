@@ -119,6 +119,42 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 		};
 	}, [updateDashboard]);
 
+	// Track session status from main process to keep UI in sync
+	useEffect(() => {
+		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
+		if (!ipcRenderer) return;
+
+		const handleSessionStarted = (_e: any, data: { startTime: number }) => {
+			setSessionActive(true);
+			setSessionStartTime(data.startTime);
+		};
+		const handleSessionStopped = () => {
+			setSessionActive(false);
+			setSessionStartTime(null);
+		};
+
+		ipcRenderer.on("session-started", handleSessionStarted);
+		ipcRenderer.on("session-stopped", handleSessionStopped);
+
+		// Fetch initial session status to sync with main process
+		ipcRenderer
+			.invoke("get-session-status")
+			.then((status: any) => {
+				if (status && typeof status.active === "boolean") {
+					setSessionActive(!!status.active);
+					if (status.active && status.startTime) {
+						setSessionStartTime(status.startTime);
+					}
+				}
+			})
+			.catch(() => {});
+
+		return () => {
+			ipcRenderer.removeListener("session-started", handleSessionStarted);
+			ipcRenderer.removeListener("session-stopped", handleSessionStopped);
+		};
+	}, []);
+
 	// Fetch all-time total score from DB on mount (and update circle)
 	useEffect(() => {
 		let isMounted = true;
@@ -180,8 +216,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
 		if (!ipcRenderer) return;
 
-		setSessionActive(true);
-		setSessionStartTime(Date.now());
+		// Don't set local state here - let IPC events handle it
 		ipcRenderer.send("start-session");
 		console.log("Focus session started");
 	};
@@ -190,8 +225,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
 		if (!ipcRenderer) return;
 
-		setSessionActive(false);
-		setSessionStartTime(null);
+		// Don't set local state here - let IPC events handle it
 		ipcRenderer.send("stop-session");
 		console.log("Focus session stopped");
 	};
