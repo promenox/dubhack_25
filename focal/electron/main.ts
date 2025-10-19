@@ -64,6 +64,7 @@ class MainApp {
 			minHeight: 700,
 			frame: true,
 			titleBarStyle: "hiddenInset",
+			autoHideMenuBar: true,
 			backgroundColor: "#0f0f0f",
 			show: false,
 			webPreferences: {
@@ -72,6 +73,8 @@ class MainApp {
 				preload: path.join(__dirname, "preload.mjs"),
 			},
 		});
+
+		this.mainWindow.removeMenu();
 
 		console.log("Loading main window...");
 
@@ -716,6 +719,7 @@ class MainApp {
 			minHeight: 800,
 			frame: true,
 			titleBarStyle: "hiddenInset",
+			autoHideMenuBar: true,
 			backgroundColor: "#0a0a0a",
 			show: false,
 			parent: this.mainWindow || undefined,
@@ -725,6 +729,8 @@ class MainApp {
 				preload: path.join(__dirname, "preload.mjs"),
 			},
 		});
+
+		this.debugWindow.removeMenu();
 
 		if (VITE_DEV_SERVER_URL) {
 			this.debugWindow.loadURL(VITE_DEV_SERVER_URL + "#/debug");
