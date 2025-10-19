@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getPlantIconSrc } from "../assets/plantIcons";
 import { getSeedLibrary } from "../core/gardenGame";
 import type { Plant, PlantType } from "../core/index";
 import { PlantVisual, getStageLabel } from "./garden/PlantVisual";
 import "./PlantOverlayWindow.css";
+import type { IpcRenderer, IpcRendererEvent } from "electron";
 
 interface PlantData {
 	plantId: string;
@@ -19,11 +20,20 @@ const PlantOverlayWindow = () => {
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
+	const getIpcRenderer = (): IpcRenderer | null => {
+		const w = window as unknown as { require?: (m: string) => { ipcRenderer?: IpcRenderer } };
+		try {
+			return w.require?.("electron")?.ipcRenderer ?? null;
+		} catch {
+			return null;
+		}
+	};
+
 	useEffect(() => {
-		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
+		const ipcRenderer = getIpcRenderer();
 		if (!ipcRenderer) return;
 
-		const handlePlantData = (_event: any, data: PlantData | null) => {
+		const handlePlantData = (_event: IpcRendererEvent, data: PlantData | null) => {
 			setPlantData(data);
 		};
 
@@ -48,43 +58,43 @@ const PlantOverlayWindow = () => {
 		e.preventDefault();
 	};
 
-	const handleMouseMove = (e: MouseEvent) => {
-		if (!isDragging) return;
+	const handleMouseMove = useCallback(
+		(e: MouseEvent) => {
+			if (!isDragging) return;
+			const ipcRenderer = getIpcRenderer();
+			if (ipcRenderer) {
+				const newX = e.screenX - dragOffset.x;
+				const newY = e.screenY - dragOffset.y;
+				ipcRenderer.send("plant-overlay-move", { x: newX, y: newY });
+			}
+		},
+		[isDragging, dragOffset]
+	);
 
-		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
-		if (ipcRenderer) {
-			// Use Electron's window positioning
-			const newX = e.screenX - dragOffset.x;
-			const newY = e.screenY - dragOffset.y;
-
-			ipcRenderer.send("plant-overlay-move", { x: newX, y: newY });
-		}
-	};
-
-	const handleMouseUp = () => {
+	const handleMouseUp = useCallback(() => {
 		setIsDragging(false);
-	};
+	}, []);
 
 	useEffect(() => {
 		if (isDragging) {
 			document.addEventListener("mousemove", handleMouseMove);
 			document.addEventListener("mouseup", handleMouseUp);
+			return () => {
+				document.removeEventListener("mousemove", handleMouseMove);
+				document.removeEventListener("mouseup", handleMouseUp);
+			};
 		}
-
-		return () => {
-			document.removeEventListener("mousemove", handleMouseMove);
-			document.removeEventListener("mouseup", handleMouseUp);
-		};
-	}, [isDragging, dragOffset]);
+		return undefined;
+	}, [isDragging, handleMouseMove, handleMouseUp]);
 
 	const plant: Plant | null = plantData
 		? {
-				id: plantData.plantId,
-				type: plantData.plantType,
-				plantedAt: plantData.plantedAt,
-				growthDuration: plantData.growthDuration,
-				progress: plantData.progress,
-		  }
+			id: plantData.plantId,
+			type: plantData.plantType,
+			plantedAt: plantData.plantedAt,
+			growthDuration: plantData.growthDuration,
+			progress: plantData.progress,
+		}
 		: null;
 
 	const seedLibrary = getSeedLibrary();
@@ -93,48 +103,16 @@ const PlantOverlayWindow = () => {
 	const stageLabel = plant ? getStageLabel(plant) : "";
 
 	return (
-		<div className="plant-overlay-root">
-			<div
-				className={`plant-overlay-container ${isDragging ? "dragging" : ""}`}
-				onMouseDown={handleMouseDown}
-				style={{ cursor: isDragging ? "grabbing" : "grab" }}
-			>
-				{plant ? (
-					<div className="plant-overlay-content">
-						<div className="plant-overlay-header">
-							<h3 className="plant-overlay-title">{definition?.displayName}</h3>
-							<span className="plant-overlay-stage">{stageLabel}</span>
-						</div>
-
-						<div className="plant-overlay-plant-display">
-							<PlantVisual
-								plant={plant}
-								stageLabel={stageLabel}
-								iconSrc={iconSrc}
-								displayName={definition?.displayName}
-								className="plant-overlay-plant"
-							/>
-						</div>
-
-						<div className="plant-overlay-progress">
-							<div className="plant-overlay-progress-bar">
-								<div
-									className="plant-overlay-progress-fill"
-									style={{ width: `${Math.round(plant.progress * 100)}%` }}
-								/>
-							</div>
-							<span className="plant-overlay-progress-text">
-								{Math.round(plant.progress * 100)}% Complete
-							</span>
-						</div>
-					</div>
-				) : (
-					<div className="plant-overlay-empty">
-						<span className="plant-overlay-empty-icon">🌿</span>
-						<p>Select a plant from your garden to see it grow here</p>
-					</div>
-				)}
-			</div>
+		<div className="plant-overlay-root" onMouseDown={handleMouseDown} style={{ cursor: isDragging ? "grabbing" : "grab" }}>
+			{plant ? (
+				<PlantVisual
+					plant={plant}
+					stageLabel={stageLabel}
+					iconSrc={iconSrc}
+					displayName={definition?.displayName}
+					className="plant-overlay-plant"
+				/>
+			) : null}
 		</div>
 	);
 };
