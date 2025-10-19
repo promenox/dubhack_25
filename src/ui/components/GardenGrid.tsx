@@ -59,6 +59,7 @@ export const GardenGrid = ({
           const definition = plant ? SEED_LIBRARY[plant.type] : undefined;
           const iconSrc = definition ? getPlantIconSrc(definition.icon) : undefined;
           const isSelectedForOverlay = Boolean(plant && selectedOverlayPlotId === plot.id);
+          const isReadyToHarvest = Boolean(plant && plant.progress >= 1);
 
           const handleDrop: React.DragEventHandler<HTMLDivElement> = (event) => {
             event.preventDefault();
@@ -72,17 +73,42 @@ export const GardenGrid = ({
             event.dataTransfer.dropEffect = 'copy';
           };
 
+          const handlePlotClick: React.MouseEventHandler<HTMLDivElement> = (event) => {
+            if (!isReadyToHarvest) return;
+            // Ensure clicks originating from nested controls (e.g., overlay button)
+            // do not trigger a harvest action.
+            if (event.defaultPrevented) return;
+            onHarvest(plot.id);
+          };
+
+          const handlePlotKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (event) => {
+            if (!isReadyToHarvest) return;
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onHarvest(plot.id);
+            }
+          };
+
           return (
             <div
               key={plot.id}
               className={clsx('plot-card', {
                 'plot-card--occupied': Boolean(plant),
-                'plot-card--ready': plant && plant.progress >= 1,
+                'plot-card--ready': isReadyToHarvest,
                 'plot-card--shake': shakePlotId === plot.id,
                 'plot-card--overlay-selected': isSelectedForOverlay
               })}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
+              onClick={handlePlotClick}
+              onKeyDown={handlePlotKeyDown}
+              role={isReadyToHarvest ? 'button' : undefined}
+              tabIndex={isReadyToHarvest ? 0 : undefined}
+              aria-label={
+                isReadyToHarvest
+                  ? `Harvest ${definition?.displayName ?? 'plant'} from plot ${getPlotDisplayId(plot.id)}`
+                  : undefined
+              }
             >
               <header className="plot-card__header">
                 <span className="plot-card__title">{getPlotDisplayId(plot.id)}</span>
@@ -114,21 +140,16 @@ export const GardenGrid = ({
                       />
                     </div>
                     <span className="plot-card__progress-text">{percent}%</span>
-                    <button
-                      className="plot-card__harvest"
-                      type="button"
-                      disabled={plant.progress < 1}
-                      onClick={() => onHarvest(plot.id)}
-                    >
-                      Harvest
-                    </button>
                     {onSelectOverlayPlot ? (
                       <button
                         type="button"
                         className={clsx('plot-card__overlay-button', {
                           'plot-card__overlay-button--active': isSelectedForOverlay
                         })}
-                        onClick={() => onSelectOverlayPlot(plot.id, plant)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onSelectOverlayPlot(plot.id, plant);
+                        }}
                         aria-pressed={isSelectedForOverlay}
                       >
                         {isSelectedForOverlay ? 'Overlay Active' : 'Show in Overlay'}

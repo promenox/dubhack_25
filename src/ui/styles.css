@@ -578,6 +578,12 @@ button:not(:disabled):active {
 .plot-card--ready {
   border-color: var(--accent-strong);
   box-shadow: 0 0 28px rgba(126, 245, 201, 0.45);
+  cursor: pointer;
+}
+
+.plot-card--ready:focus-visible {
+  outline: 3px solid var(--accent-strong);
+  outline-offset: 3px;
 }
 
 .plot-card--shake {
@@ -628,7 +634,7 @@ button:not(:disabled):active {
   display: grid;
   gap: 0.5rem;
   align-items: center;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   min-height: 36px;
 }
 
@@ -647,17 +653,6 @@ button:not(:disabled):active {
 .plot-card__progress-text {
   font-weight: 600;
   color: var(--text-secondary);
-}
-
-.plot-card__harvest {
-  background: var(--accent-strong);
-  color: #063024;
-  padding-inline: 1rem;
-}
-
-.plot-card__harvest:disabled {
-  background: rgba(126, 245, 201, 0.25);
-  color: rgba(222, 244, 236, 0.6);
 }
 
 .plot-card--overlay-selected {
