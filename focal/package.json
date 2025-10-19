@@ -18,7 +18,9 @@
   },
   "dependencies": {
     "axios": "^1.6.0",
-    "openai": "^4.20.0"
+    "openai": "^4.20.0",
+    "dotenv": "^16.4.5",
+    "uiohook-napi": "^1.5.1"
   },
   "build": {
     "appId": "com.focal.productivity-tracker",
@@ -34,6 +36,22 @@
       "category": "public.app-category.productivity",
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.plist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "publisherName": "Focal",
+      "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false
     }
   }
 }

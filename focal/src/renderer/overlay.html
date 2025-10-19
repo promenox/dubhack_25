@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data:" />
+		<title>Focus Overlay</title>
+		<style>
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+				overflow: hidden;
+				background: rgba(15, 15, 15, 0.35);
+				-webkit-user-select: none;
+			}
+			.container {
+				box-sizing: border-box;
+				width: 100%;
+				height: 100%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+				color: #e6e6e6;
+				text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+				border-radius: 12px;
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				backdrop-filter: blur(8px);
+				-webkit-backdrop-filter: blur(8px);
+				padding: 10px 14px;
+			}
+			.header {
+				width: 100%;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+			}
+			.drag {
+				-webkit-app-region: drag;
+				font-size: 11px;
+				opacity: 0.7;
+			}
+			.time {
+				font-weight: 700;
+				font-size: 28px;
+				letter-spacing: 0.5px;
+			}
+			.label {
+				font-size: 11px;
+				opacity: 0.8;
+				margin-bottom: 4px;
+				text-transform: uppercase;
+				letter-spacing: 1px;
+			}
+			.stack {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 2px;
+			}
+			.meta {
+				width: 100%;
+				margin-top: 8px;
+				font-size: 12px;
+				line-height: 1.25rem;
+				max-width: 600px;
+				text-align: center;
+				word-break: break-word;
+			}
+			.url {
+				color: #9ad1ff;
+			}
+			.metrics {
+				display: flex;
+				gap: 16px;
+				justify-content: center;
+				margin-top: 8px;
+				font-size: 11px;
+				opacity: 0.9;
+			}
+			.metric {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 2px;
+			}
+			.metric-label {
+				opacity: 0.7;
+				text-transform: uppercase;
+				font-size: 9px;
+				letter-spacing: 0.5px;
+			}
+			.metric-value {
+				font-weight: 600;
+				font-size: 13px;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<div class="header">
+				<div class="drag">Drag to move</div>
+				<div class="time" id="time">00:00:00</div>
+			</div>
+			<div class="meta">
+				<div id="title">—</div>
+				<div id="url" class="url">—</div>
+			</div>
+			<div class="metrics">
+				<div class="metric">
+					<div class="metric-label">Keys/min</div>
+					<div class="metric-value" id="keystroke-rate">0</div>
+				</div>
+				<div class="metric">
+					<div class="metric-label">Keys Total</div>
+					<div class="metric-value" id="keystroke-count">0</div>
+				</div>
+				<div class="metric">
+					<div class="metric-label">Mouse/min</div>
+					<div class="metric-value" id="mouse-rate">0</div>
+				</div>
+			</div>
+		</div>
+		<script>
+			const { ipcRenderer } = require("electron");
+			let startTime = null;
+			let timer = null;
+			let latestTitle = "";
+			let latestUrl = "";
+
+			function pad(n) {
+				return n < 10 ? "0" + n : "" + n;
+			}
+
+			function render() {
+				if (startTime == null) return;
+				const elapsed = Date.now() - startTime;
+				const totalSeconds = Math.floor(elapsed / 1000);
+				const h = Math.floor(totalSeconds / 3600);
+				const m = Math.floor((totalSeconds % 3600) / 60);
+				const s = totalSeconds % 60;
+				document.getElementById("time").textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+			}
+
+			function start(ts) {
+				startTime = ts || Date.now();
+				if (timer) clearInterval(timer);
+				render();
+				timer = setInterval(render, 1000);
+			}
+
+			function stop() {
+				if (timer) clearInterval(timer);
+				timer = null;
+				startTime = null;
+				document.getElementById("time").textContent = "00:00:00";
+				document.getElementById("title").textContent = "—";
+				document.getElementById("url").textContent = "—";
+				document.getElementById("keystroke-rate").textContent = "0";
+				document.getElementById("keystroke-count").textContent = "0";
+				document.getElementById("mouse-rate").textContent = "0";
+			}
+
+			ipcRenderer.on("session-started", (_e, payload) => {
+				start(payload && payload.startTime);
+			});
+			ipcRenderer.on("session-stopped", () => {
+				stop();
+			});
+
+			ipcRenderer.on("focus-update", (_e, data) => {
+				if (data && typeof data.windowTitle === "string") {
+					latestTitle = data.windowTitle || "";
+					document.getElementById("title").textContent = latestTitle || "—";
+				}
+				if (data && typeof data.url === "string") {
+					latestUrl = data.url || "";
+					document.getElementById("url").textContent = latestUrl || "—";
+				}
+				if (data && typeof data.keystrokeRate === "number") {
+					document.getElementById("keystroke-rate").textContent = data.keystrokeRate.toFixed(1);
+				}
+				if (data && typeof data.keystrokeCount === "number") {
+					document.getElementById("keystroke-count").textContent = data.keystrokeCount;
+				}
+				if (data && typeof data.mouseMovementRate === "number") {
+					document.getElementById("mouse-rate").textContent = data.mouseMovementRate.toFixed(1);
+				}
+			});
+		</script>
+	</body>
+</html>
