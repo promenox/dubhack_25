@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Plant } from '@core/index';
 import { GardenGrid } from '@ui/components/GardenGrid';
 import { SeedShop } from '@ui/components/SeedShop';
 import { InventoryToolbar } from '@ui/components/InventoryToolbar';
@@ -11,6 +12,7 @@ const App = () => {
   const [isSeedShopOpen, setIsSeedShopOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
   const [shakePlotId, setShakePlotId] = useState<string | null>(null);
+  const [overlayPlotId, setOverlayPlotId] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const toastDismissRef = useRef<number | null>(null);
 
@@ -24,6 +26,30 @@ const App = () => {
       console.log('[Debug] Test helper available: __testMultiplier(n)');
     }
   }, [isReady, dispatch]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    window.gardenApi
+      .getOverlaySelection()
+      .then((initialSelection) => {
+        if (isMounted) {
+          setOverlayPlotId(initialSelection ?? null);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to read overlay selection', error);
+      });
+
+    const unsubscribe = window.gardenApi.onOverlaySelection((nextSelection) => {
+      setOverlayPlotId(nextSelection ?? null);
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   const version = useMemo(() => {
     try {
@@ -79,6 +105,17 @@ const App = () => {
     [hideToast]
   );
 
+  const handleSelectOverlayPlot = useCallback(
+    (plotId: string, _plant: Plant) => {
+      const nextSelection = overlayPlotId === plotId ? null : plotId;
+      setOverlayPlotId(nextSelection);
+      window.gardenApi
+        .setOverlaySelection(nextSelection)
+        .catch((error) => console.error('Failed to update overlay selection', error));
+    },
+    [overlayPlotId]
+  );
+
   useEffect(() => {
     if (!gameError) {
       return;
@@ -120,6 +157,20 @@ const App = () => {
   const dismissToast = useCallback(() => {
     hideToast();
   }, [hideToast]);
+
+  useEffect(() => {
+    if (!state || !overlayPlotId) {
+      return;
+    }
+    const selectedPlot = state.plots.find((plot) => plot.id === overlayPlotId);
+    if (selectedPlot && selectedPlot.plant) {
+      return;
+    }
+    setOverlayPlotId(null);
+    window.gardenApi
+      .setOverlaySelection(null)
+      .catch((error) => console.error('Failed to reset overlay selection', error));
+  }, [state, overlayPlotId]);
 
   // Now we can conditionally return
   if (!isReady || !state) {
@@ -164,6 +215,8 @@ const App = () => {
             <GardenGrid
               plots={state.plots}
               shakePlotId={shakePlotId ?? undefined}
+              selectedOverlayPlotId={overlayPlotId ?? undefined}
+              onSelectOverlayPlot={handleSelectOverlayPlot}
               onDropSeed={(plotId, seedType) =>
                 dispatch({ type: 'plant', plotId, seedType })
               }

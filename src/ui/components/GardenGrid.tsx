@@ -3,13 +3,7 @@ import { SEED_LIBRARY } from '@core/gardenGame';
 import clsx from 'clsx';
 import { useMemo } from 'react';
 import { getPlantIconSrc } from '@ui/assets/plantIcons';
-
-const getStageLabel = (plant: Plant) => {
-  if (plant.progress >= 1) return 'Ready to Harvest';
-  if (plant.progress >= 0.66) return 'Blooming';
-  if (plant.progress >= 0.33) return 'Sprouting';
-  return 'Seedling';
-};
+import { PlantVisual, getStageLabel } from '@ui/components/PlantVisual';
 
 const getProgressPercent = (plant: Plant) =>
   Math.min(100, Math.round(plant.progress * 100));
@@ -28,6 +22,8 @@ interface GardenGridProps {
   onDropSeed: (plotId: string, seedType: PlantType) => void;
   onHarvest: (plotId: string) => void;
   shakePlotId?: string;
+  selectedOverlayPlotId?: string | null;
+  onSelectOverlayPlot?: (plotId: string, plant: Plant) => void;
 }
 
 const GROWTH_COLORS: Record<string, string> = {
@@ -41,7 +37,9 @@ export const GardenGrid = ({
   plots,
   onDropSeed,
   onHarvest,
-  shakePlotId
+  shakePlotId,
+  selectedOverlayPlotId,
+  onSelectOverlayPlot
 }: GardenGridProps) => {
   const gridTemplate = useMemo(() => {
     const count = plots.length;
@@ -60,6 +58,7 @@ export const GardenGrid = ({
           const progressColor = plant ? GROWTH_COLORS[stageLabel] : 'transparent';
           const definition = plant ? SEED_LIBRARY[plant.type] : undefined;
           const iconSrc = definition ? getPlantIconSrc(definition.icon) : undefined;
+          const isSelectedForOverlay = Boolean(plant && selectedOverlayPlotId === plot.id);
 
           const handleDrop: React.DragEventHandler<HTMLDivElement> = (event) => {
             event.preventDefault();
@@ -79,7 +78,8 @@ export const GardenGrid = ({
               className={clsx('plot-card', {
                 'plot-card--occupied': Boolean(plant),
                 'plot-card--ready': plant && plant.progress >= 1,
-                'plot-card--shake': shakePlotId === plot.id
+                'plot-card--shake': shakePlotId === plot.id,
+                'plot-card--overlay-selected': isSelectedForOverlay
               })}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
@@ -122,53 +122,24 @@ export const GardenGrid = ({
                     >
                       Harvest
                     </button>
+                    {onSelectOverlayPlot ? (
+                      <button
+                        type="button"
+                        className={clsx('plot-card__overlay-button', {
+                          'plot-card__overlay-button--active': isSelectedForOverlay
+                        })}
+                        onClick={() => onSelectOverlayPlot(plot.id, plant)}
+                        aria-pressed={isSelectedForOverlay}
+                      >
+                        {isSelectedForOverlay ? 'Overlay Active' : 'Show in Overlay'}
+                      </button>
+                    ) : null}
                   </>
                 ) : null}
               </footer>
             </div>
           );
         })}
-      </div>
-    </div>
-  );
-};
-
-interface PlantVisualProps {
-  plant: Plant;
-  stageLabel: string;
-  iconSrc?: string;
-  displayName?: string;
-}
-
-const PlantVisual = ({ plant, stageLabel, iconSrc, displayName }: PlantVisualProps) => {
-  const scale = 0.7 + plant.progress * 0.35;
-  const swayIntensity = plant.progress >= 1 ? 'plot-plant--harvest-ready' : 'plot-plant--growing';
-  const clampedProgress = Math.min(Math.max(plant.progress, 0), 1);
-  const revealTopInset = `${(1 - clampedProgress) * 100}%`;
-  const clipPath = `inset(${revealTopInset} 0 0 0)`;
-  const stageKey = stageLabel.replace(/\s+/g, '').toLowerCase();
-  const isIllustrated = Boolean(iconSrc);
-
-  return (
-    <div
-      className={clsx('plot-plant', swayIntensity, { 'plot-plant--illustrated': isIllustrated })}
-      style={{ transform: `scale(${scale})` }}
-    >
-      <div
-        className={clsx('plot-plant__reveal', { 'plot-plant__reveal--illustrated': isIllustrated })}
-        style={{ clipPath }}
-      >
-        {iconSrc ? (
-          <>
-            <span className="plot-plant__glow" aria-hidden="true" />
-            <img src={iconSrc} alt={displayName ?? stageLabel} className="plot-plant__image" />
-          </>
-        ) : (
-          <>
-            <div className={clsx('plot-plant__stem', `plot-plant__stem--${plant.type}`)} />
-            <div className={clsx('plot-plant__bloom', `plot-plant__bloom--${stageKey}`)} />
-          </>
-        )}
       </div>
     </div>
   );

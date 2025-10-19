@@ -39,6 +39,11 @@ export const useGardenGame = () => {
         gameRef.current = game;
         game.subscribe((nextState) => {
           setState(nextState);
+          try {
+            window.gardenApi.emitGardenState(nextState);
+          } catch (err) {
+            console.error('Failed to broadcast garden state to overlay', err);
+          }
         });
         setIsReady(true);
       } catch (err) {
