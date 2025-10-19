@@ -19,13 +19,42 @@
   text-align: center;
 }
 
+/* Place username above the medal emoji */
+.podium-spot {
+  display: flex;
+  flex-direction: column;
+}
+.podium-spot .podium-user { order: 0; }
+.podium-spot .podium-rank { order: 1; }
+.podium-spot .podium-score { order: 2; }
+
+/* Leaderboard title gradient: neon green to dark green */
+.leaderboard-page-header .dashboard-title {
+  background: linear-gradient(90deg, #00ff7a 0%, #008f4a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Leaderboard page Refresh button style to match neon green */
+.leaderboard-page-actions .btn.btn-secondary {
+  background: linear-gradient(90deg, rgba(0, 255, 122, 0.9) 0%, rgba(126, 255, 196, 0.6) 100%);
+  color: #062a1f;
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 22px rgba(0, 255, 106, 0.35);
+}
+.leaderboard-page-actions .btn.btn-secondary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 0 30px rgba(0, 255, 106, 0.5);
+}
+
 @media (max-width: 768px) {
   .podium {
     grid-template-columns: 1fr;
   }
-  .podium-1, .podium-2, .podium-3 {
-    height: auto;
-  }
+.podium-1, .podium-2, .podium-3 {
+  min-height: auto;
+}
 }
 
 
