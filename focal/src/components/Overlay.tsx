@@ -3,6 +3,8 @@ import type { OverlayData, SessionData } from "../types/ipc";
 import "./Overlay.css";
 
 const Overlay = () => {
+	console.log("🪟 Overlay component mounted");
+
 	const [time, setTime] = useState<string>("00:00:00");
 	const [title, setTitle] = useState<string>("—");
 	const [url, setUrl] = useState<string>("—");
@@ -32,15 +34,18 @@ const Overlay = () => {
 	};
 
 	const start = (ts?: number) => {
+		console.log("🚀 Overlay: Starting session with timestamp:", ts);
 		const timestamp = ts || Date.now();
 		setStartTime(timestamp);
 
 		if (timer) clearInterval(timer);
 		const newTimer = setInterval(render, 1000);
 		setTimer(newTimer);
+		console.log("✅ Overlay: Session started, timer set");
 	};
 
 	const stop = () => {
+		console.log("🛑 Overlay: Stopping session");
 		if (timer) clearInterval(timer);
 		setTimer(null);
 		setStartTime(null);
@@ -54,6 +59,7 @@ const Overlay = () => {
 		setCumulative(0);
 		setAiInsight("—");
 		setContext("—");
+		console.log("✅ Overlay: Session stopped, state reset");
 	};
 
 	useEffect(() => {
@@ -112,13 +118,20 @@ const Overlay = () => {
 
 	useEffect(() => {
 		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
-		if (!ipcRenderer) return;
+		if (!ipcRenderer) {
+			console.error("❌ Overlay: IPC Renderer not available");
+			return;
+		}
+
+		console.log("✅ Overlay: Setting up IPC listeners");
 
 		const handleSessionStarted = (_e: any, payload: SessionData) => {
+			console.log("🎯 Overlay: Session started event received", payload);
 			start(payload && payload.startTime);
 		};
 
 		const handleSessionStopped = () => {
+			console.log("🛑 Overlay: Session stopped event received");
 			stop();
 		};
 

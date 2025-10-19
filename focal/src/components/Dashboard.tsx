@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FocusData } from "../types/ipc";
 import { fetchAllScores } from "../utils/database";
@@ -16,7 +16,7 @@ interface DashboardProps {
 	onSignOut?: () => void;
 }
 
-const Dashboard = ({ onSignOut }: DashboardProps) => {
+const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 	const navigate = useNavigate();
 	const [instantaneousScore, setInstantaneousScore] = useState<number>(0);
 	const [cumulativeScore, setCumulativeScore] = useState<number>(0);
@@ -279,49 +279,67 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 			{/* Premium Sidebar */}
 			<div className="sidebar">
 				<div className="logo">
-					<div className="logo-icon"></div>
+					<div className="logo-icon">🧠</div>
 					<div className="logo-text">FocusAI</div>
 				</div>
 
-				<div className="nav-section">
-					<div className="nav-title">Dashboard</div>
-					<div className="nav-item active">
-						<div className="nav-icon">📊</div>
-						<div className="nav-label">Overview</div>
+				<nav className="nav">
+					<div className="nav-section">
+						<div className="nav-title">Main</div>
+						<div className="nav-item active">
+							<div className="nav-icon">📊</div>
+							<div className="nav-label">Dashboard</div>
+						</div>
+						<div className="nav-item" onClick={() => navigate("/garden")}>
+							<div className="nav-icon">🌱</div>
+							<div className="nav-label">Garden</div>
+						</div>
+						<div className="nav-item">
+							<div className="nav-icon">📈</div>
+							<div className="nav-label">Analytics</div>
+						</div>
+						<div className="nav-item" onClick={() => navigate("/leaderboard")}>
+							<div className="nav-icon">🏆</div>
+							<div className="nav-label">Leaderboard</div>
+						</div>
 					</div>
-					<div className="nav-item" onClick={() => navigate("/garden")}>
-						<div className="nav-icon">🌱</div>
-						<div className="nav-label">Garden</div>
-					</div>
-					<div className="nav-item">
-						<div className="nav-icon">📈</div>
-						<div className="nav-label">Analytics</div>
-					</div>
-					<div className="nav-item" onClick={() => navigate("/leaderboard")}>
-						<div className="nav-icon">🏆</div>
-						<div className="nav-label">Leaderboard</div>
-					</div>
-				</div>
 
-				<div className="nav-section">
-					<div className="nav-title">Tools</div>
-					<div className="nav-item">
-						<div className="nav-icon">⚙️</div>
-						<div className="nav-label">Settings</div>
+					<div className="nav-section">
+						<div className="nav-title">Tools</div>
+						<div className="nav-item">
+							<div className="nav-icon">⚙️</div>
+							<div className="nav-label">Settings</div>
+						</div>
+						<div className="nav-item">
+							<div className="nav-icon">🎯</div>
+							<div className="nav-label">Goals</div>
+						</div>
+						<div className="nav-item">
+							<div className="nav-icon">💡</div>
+							<div className="nav-label">Insights</div>
+						</div>
+						<div className="nav-item" onClick={openDebugPage}>
+							<div className="nav-icon">🔧</div>
+							<div className="nav-label">Debug Console</div>
+						</div>
 					</div>
-					<div className="nav-item">
-						<div className="nav-icon">🎯</div>
-						<div className="nav-label">Goals</div>
+
+					<div className="nav-section">
+						<div className="nav-title">Insights</div>
+						<div className="nav-item">
+							<div className="nav-icon">🎯</div>
+							<div className="nav-label">Goals</div>
+						</div>
+						<div className="nav-item">
+							<div className="nav-icon">📊</div>
+							<div className="nav-label">Statistics</div>
+						</div>
+						<div className="nav-item">
+							<div className="nav-icon">🔍</div>
+							<div className="nav-label">Insights</div>
+						</div>
 					</div>
-					<div className="nav-item">
-						<div className="nav-icon">💡</div>
-						<div className="nav-label">Insights</div>
-					</div>
-					<div className="nav-item" onClick={openDebugPage}>
-						<div className="nav-icon">🔧</div>
-						<div className="nav-label">Debug Console</div>
-					</div>
-				</div>
+				</nav>
 			</div>
 
 			{/* Main Content */}
@@ -349,35 +367,55 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 				{/* Premium Cards Grid */}
 				<div className="cards-grid">
 					{/* Instantaneous Score Card */}
-					<div className="card score-card">
+					<div className={`card score-card ${sessionActive ? "session-active" : ""}`}>
 						<div className="card-header">
-							<h3 className="card-title">Instantaneous Focus</h3>
+							<h3 className="card-title">
+								Instantaneous Focus
+								{sessionActive && <span className="session-indicator">●</span>}
+							</h3>
 							<div className="card-icon">⚡</div>
 						</div>
 						<div className="score-display">
 							<div className="score-circle" id="instantaneousCircle">
 								<div className="score-value">{instantaneousScore.toFixed(0)}</div>
+								{sessionActive && <div className="score-pulse"></div>}
 							</div>
 							<div>
-								<div className="score-label">Current Score</div>
+								<div className="score-label">{sessionActive ? "Live Score" : "Current Score"}</div>
 								<div className="score-label">{instantaneousContext}</div>
+								{sessionActive && (
+									<div className="score-status">
+										<span className="status-dot"></span>
+										Updating in real-time
+									</div>
+								)}
 							</div>
 						</div>
 					</div>
 
 					{/* Cumulative Score Card */}
-					<div className="card score-card">
+					<div className={`card score-card ${sessionActive ? "session-active" : ""}`}>
 						<div className="card-header">
-							<h3 className="card-title">Cumulative Progress</h3>
+							<h3 className="card-title">
+								Cumulative Progress
+								{sessionActive && <span className="session-indicator">●</span>}
+							</h3>
 							<div className="card-icon">📈</div>
 						</div>
 						<div className="score-display">
 							<div className="score-circle" id="cumulativeCircle">
 								<div className="score-value">{cumulativeScore.toFixed(0)}</div>
+								{sessionActive && <div className="score-pulse"></div>}
 							</div>
 							<div>
-								<div className="score-label">Session Average</div>
+								<div className="score-label">{sessionActive ? "Session Total" : "Session Average"}</div>
 								<div className="score-label">{cumulativeContext}</div>
+								{sessionActive && (
+									<div className="score-status">
+										<span className="status-dot"></span>
+										Growing with focus
+									</div>
+								)}
 							</div>
 						</div>
 					</div>
@@ -535,6 +573,48 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 												}}
 											>
 												{sessionDuration}
+											</span>
+										</div>
+										<div
+											style={{
+												display: "flex",
+												justifyContent: "space-between",
+												alignItems: "center",
+												marginBottom: "8px",
+											}}
+										>
+											<span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
+												Current Focus:
+											</span>
+											<span
+												style={{
+													fontFamily: "'JetBrains Mono', monospace",
+													fontWeight: 600,
+													color: "var(--accent)",
+												}}
+											>
+												{instantaneousScore.toFixed(0)}
+											</span>
+										</div>
+										<div
+											style={{
+												display: "flex",
+												justifyContent: "space-between",
+												alignItems: "center",
+												marginBottom: "8px",
+											}}
+										>
+											<span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
+												Session Total:
+											</span>
+											<span
+												style={{
+													fontFamily: "'JetBrains Mono', monospace",
+													fontWeight: 600,
+													color: "var(--success)",
+												}}
+											>
+												{cumulativeScore.toFixed(0)}
 											</span>
 										</div>
 										<div
