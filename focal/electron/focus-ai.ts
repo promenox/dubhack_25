@@ -52,6 +52,7 @@ export class FocusAI {
 	aiEnabled: boolean;
 	quotaExceeded: boolean;
 	lastQuotaCheck: number;
+	userGoal?: string;
 
 	constructor() {
 		console.log("🎯 FocusAI: Initializing with OLLAMA AI INTEGRATION");
@@ -125,7 +126,9 @@ export class FocusAI {
 		}
 
 		try {
-			const prompt = `Analyze this activity and classify its productivity level:
+			const prompt = `Analyze this activity and classify its productivity level, considering the user's stated goal.
+
+User Goal (if provided): ${this.userGoal && this.userGoal.trim() ? this.userGoal : "None"}
 
 App: ${activityWindow.activeApp || "Unknown"}
 Title: ${activityWindow.windowTitle || "Unknown"}
@@ -139,8 +142,13 @@ Classify as one of these categories:
 - "distracted": Entertainment, social media, games (score 0-30)
 - "idle": No activity or very low engagement (score 0-20)
 
+Guidelines for goal alignment:
+- If the activity clearly advances the goal, prefer deep_work or learning.
+- If unrelated to the goal, lean toward maintenance or distracted depending on content.
+- If ambiguous, base on content heuristics but mention goal alignment in reasoning.
+
 Respond with ONLY this JSON format:
-{"category": "category_name", "confidence": 0.85, "reasoning": "brief explanation"}`;
+{"category": "category_name", "confidence": 0.85, "reasoning": "brief explanation with goal alignment info if applicable"}`;
 
 			const response = await fetch("http://localhost:11434/api/generate", {
 				method: "POST",

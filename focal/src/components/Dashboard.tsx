@@ -328,9 +328,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 							<div className="nav-icon">🌱</div>
 							<div className="nav-label">Garden</div>
 						</div>
-						<div className="nav-item">
-							<div className="nav-icon">📈</div>
-							<div className="nav-label">Analytics</div>
+						<div className="nav-item" onClick={() => navigate("/goals")}>
+							<div className="nav-icon">🎯</div>
+							<div className="nav-label">Goals</div>
 						</div>
 						<div className="nav-item" onClick={() => navigate("/leaderboard")}>
 							<div className="nav-icon">🏆</div>

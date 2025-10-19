@@ -26,13 +26,17 @@ export class ContextAnalyzer {
 	 * Analyze the current screen context and recent history to determine
 	 * productivity level and contextual relationship
 	 */
-	async analyzeContext(currentScreen: ScreenContext, recentScreens: ScreenContext[]): Promise<ProductivityAnalysis> {
+	async analyzeContext(
+		currentScreen: ScreenContext,
+		recentScreens: ScreenContext[],
+		userGoal?: string
+	): Promise<ProductivityAnalysis> {
 		if (!this.isEnabled || !this.bedrockClient) {
 			return this.getFallbackAnalysis(currentScreen);
 		}
 
 		try {
-			const prompt = this.buildAnalysisPrompt(currentScreen, recentScreens);
+			const prompt = this.buildAnalysisPrompt(currentScreen, recentScreens, userGoal);
 			const response = await this.bedrockClient.invokeModel(prompt, 512);
 
 			// Parse the JSON response
@@ -49,14 +53,18 @@ export class ContextAnalyzer {
 	/**
 	 * Build the analysis prompt for the AI model
 	 */
-	private buildAnalysisPrompt(currentScreen: ScreenContext, recentScreens: ScreenContext[]): string {
+	private buildAnalysisPrompt(
+		currentScreen: ScreenContext,
+		recentScreens: ScreenContext[],
+		userGoal?: string
+	): string {
 		const prompt = `You are a productivity intelligence model that evaluates a user's focus context. Analyze the current screen and the last three screens to determine both (1) how contextually related this task switch is, and (2) whether the current activity is productive, neutral, or distracting.
 
 Consider the application names, window titles, and URLs semantically — not just by keywords. If the current task continues the same workflow (e.g., VS Code → Chrome → Stack Overflow), it shows high contextual focus. If the user switches to something unrelated or entertainment-based (e.g., VS Code → YouTube → TikTok), it indicates distraction.
 
 Evaluate educational content (e.g., "Khan Academy," "Machine Learning Course") as productive learning, and professional or creative tools (VS Code, Notion, Slack, Docs) as work.
 
-**Current Screen:**
+${userGoal && userGoal.trim() ? `**User Goal:**\n- ${userGoal.trim()}\n\n` : ""}**Current Screen:**
 - Application: ${currentScreen.activeApp || "Unknown"}
 - Window Title: ${currentScreen.windowTitle || "Unknown"}
 - URL: ${currentScreen.url || "N/A"}

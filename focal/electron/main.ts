@@ -49,6 +49,8 @@ class MainApp {
 
 		// Initialize FocusAI
 		this.focusAI = new FocusAI();
+		// Attach user goal container on the AI instance
+		(this.focusAI as any).userGoal = "";
 
 		this.isDev = process.argv.includes("--dev");
 		this.updateInterval = null;
@@ -760,6 +762,24 @@ class MainApp {
 		// Allow renderer to query current session status
 		ipcMain.handle("get-session-status", () => {
 			return { active: this.sessionActive, startTime: this.sessionStartTime };
+		});
+
+		// User Goal: set/get via IPC
+		ipcMain.handle("set-user-goal", async (_e, goal: string) => {
+			try {
+				(this.focusAI as any).userGoal = typeof goal === "string" ? goal : "";
+				return { success: true };
+			} catch (error: unknown) {
+				return { success: false, error: (error as Error)?.message };
+			}
+		});
+
+		ipcMain.handle("get-user-goal", async () => {
+			try {
+				return { success: true, goal: (this.focusAI as any).userGoal || "" };
+			} catch (error: unknown) {
+				return { success: false, error: (error as Error)?.message };
+			}
 		});
 
 		// Permission checks removed - no longer needed without keystroke tracking
