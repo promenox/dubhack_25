@@ -128,15 +128,15 @@ class MainApp {
 		const overlayConfig: any = {
 			width: overlayWidth,
 			height: overlayHeight,
-			minWidth: overlayWidth,
-			maxWidth: overlayWidth,
-			minHeight: overlayHeight,
-			maxHeight: overlayHeight,
+			minWidth: 300,
+			minHeight: 120,
+			maxWidth: 600,
+			maxHeight: 400,
 			x,
 			y,
 			frame: false,
 			transparent: true,
-			resizable: false,
+			resizable: true,
 			movable: true,
 			alwaysOnTop: true,
 			skipTaskbar: true,
@@ -201,13 +201,6 @@ class MainApp {
 
 		this.overlayWindow.once("ready-to-show", () => {
 			console.log("Overlay window ready to show");
-			console.log("Overlay window size before fix:", this.overlayWindow?.getSize());
-
-			// Force the correct size immediately
-			this.overlayWindow?.setSize(380, 160, false);
-			this.overlayWindow?.setResizable(false);
-
-			console.log("Overlay window size after fix:", this.overlayWindow?.getSize());
 			console.log("Overlay window bounds:", this.overlayWindow?.getBounds());
 			this.overlayWindow?.showInactive();
 		});
@@ -245,23 +238,8 @@ class MainApp {
 
 		if (this.overlayWindow.isMinimized()) this.overlayWindow.restore();
 
-		// Force the window to be the correct size multiple times
-		this.overlayWindow.setSize(380, 160, false);
-		this.overlayWindow.setResizable(false);
-		this.overlayWindow.setMinimumSize(380, 160);
-		this.overlayWindow.setMaximumSize(380, 160);
-
-		// Force size again after a short delay
-		setTimeout(() => {
-			if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-				this.overlayWindow.setSize(380, 160, false);
-				console.log("Overlay window size after timeout fix:", this.overlayWindow.getSize());
-			}
-		}, 100);
-
 		this.overlayWindow.showInactive();
 		console.log("Overlay window shown");
-		console.log("Final overlay window size:", this.overlayWindow.getSize());
 		console.log("Final overlay window bounds:", this.overlayWindow.getBounds());
 
 		// Send start event with timestamp after load
@@ -302,8 +280,8 @@ class MainApp {
 		}
 
 		const { width } = screen.getPrimaryDisplay().workAreaSize;
-		const overlayWidth = 380;
-		const overlayHeight = 520;
+		const overlayWidth = 250;
+		const overlayHeight = 320;
 		const x = Math.round(width - overlayWidth - 40); // Position on right side
 		const y = 80;
 
@@ -314,15 +292,15 @@ class MainApp {
 		const overlayConfig: any = {
 			width: overlayWidth,
 			height: overlayHeight,
-			minWidth: overlayWidth,
-			maxWidth: overlayWidth,
-			minHeight: overlayHeight,
-			maxHeight: overlayHeight,
+			minWidth: 200,
+			minHeight: 250,
+			maxWidth: 500,
+			maxHeight: 600,
 			x,
 			y,
 			frame: false,
 			transparent: true,
-			resizable: false,
+			resizable: true,
 			movable: true,
 			alwaysOnTop: true,
 			skipTaskbar: true,
@@ -380,8 +358,6 @@ class MainApp {
 
 		this.plantOverlayWindow.once("ready-to-show", () => {
 			console.log("Plant overlay window ready to show");
-			this.plantOverlayWindow?.setSize(overlayWidth, overlayHeight, false);
-			this.plantOverlayWindow?.setResizable(false);
 			this.plantOverlayWindow?.showInactive();
 		});
 
@@ -523,15 +499,6 @@ class MainApp {
 			return this.focusAI.getGardenGrowthLevel();
 		});
 
-		// Overlay interaction: allow drag when requested
-		ipcMain.on("overlay-set-ignore-mouse", (_e, ignore) => {
-			if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-				try {
-					this.overlayWindow.setIgnoreMouseEvents(!!ignore, { forward: !!ignore });
-				} catch (_) {}
-			}
-		});
-
 		// Handle overlay window movement
 		ipcMain.on("overlay-move", (_e, { x, y }) => {
 			if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
@@ -604,15 +571,6 @@ class MainApp {
 		ipcMain.on("update-plant-overlay", (_e, data) => {
 			if (this.plantOverlayWindow && !this.plantOverlayWindow.isDestroyed()) {
 				this.plantOverlayWindow.webContents.send("plant-data-update", data);
-			}
-		});
-
-		// Allow plant overlay to be dragged
-		ipcMain.on("plant-overlay-set-ignore-mouse", (_e, ignore) => {
-			if (this.plantOverlayWindow && !this.plantOverlayWindow.isDestroyed()) {
-				try {
-					this.plantOverlayWindow.setIgnoreMouseEvents(!!ignore, { forward: !!ignore });
-				} catch (_) {}
 			}
 		});
 

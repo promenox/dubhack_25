@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { OverlayData, SessionData } from "../types/ipc";
 import "./Overlay.css";
 
@@ -61,35 +61,35 @@ const Overlay = () => {
 	}, [startTime]);
 
 	// Platform detection
-	const isMac = navigator.platform.toLowerCase().includes('mac');
-	const isWindows = navigator.platform.toLowerCase().includes('win');
+	const isMac = navigator.platform.toLowerCase().includes("mac");
+	const isWindows = navigator.platform.toLowerCase().includes("win");
 
 	// Drag functionality
 	const handleMouseDown = (e: React.MouseEvent) => {
 		if (e.button !== 0) return; // Only left mouse button
-		
+
 		setIsDragging(true);
 		const rect = overlayRef.current?.getBoundingClientRect();
 		if (rect) {
 			setDragOffset({
 				x: e.clientX - rect.left,
-				y: e.clientY - rect.top
+				y: e.clientY - rect.top,
 			});
 		}
-		
+
 		// Disable text selection during drag
 		e.preventDefault();
 	};
 
 	const handleMouseMove = (e: MouseEvent) => {
 		if (!isDragging) return;
-		
+
 		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
 		if (ipcRenderer) {
 			// Use Electron's window positioning
 			const newX = e.screenX - dragOffset.x;
 			const newY = e.screenY - dragOffset.y;
-			
+
 			ipcRenderer.send("overlay-move", { x: newX, y: newY });
 		}
 	};
@@ -100,13 +100,13 @@ const Overlay = () => {
 
 	useEffect(() => {
 		if (isDragging) {
-			document.addEventListener('mousemove', handleMouseMove);
-			document.addEventListener('mouseup', handleMouseUp);
+			document.addEventListener("mousemove", handleMouseMove);
+			document.addEventListener("mouseup", handleMouseUp);
 		}
 
 		return () => {
-			document.removeEventListener('mousemove', handleMouseMove);
-			document.removeEventListener('mouseup', handleMouseUp);
+			document.removeEventListener("mousemove", handleMouseMove);
+			document.removeEventListener("mouseup", handleMouseUp);
 		};
 	}, [isDragging, dragOffset]);
 
@@ -165,16 +165,15 @@ const Overlay = () => {
 	}, [timer]);
 
 	return (
-		<div 
+		<div
 			ref={overlayRef}
-			className={`overlay-container ${isMac ? 'overlay-mac' : isWindows ? 'overlay-windows' : 'overlay-default'} ${isDragging ? 'overlay-dragging' : ''}`}
+			className={`overlay-container ${
+				isMac ? "overlay-mac" : isWindows ? "overlay-windows" : "overlay-default"
+			} ${isDragging ? "overlay-dragging" : ""}`}
 			onMouseDown={handleMouseDown}
-			style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+			style={{ cursor: isDragging ? "grabbing" : "grab" }}
 		>
 			<div className="overlay-header">
-				<div className="overlay-drag">
-					{isDragging ? 'Dragging...' : 'Drag to move'}
-				</div>
 				<div className="overlay-time">{time}</div>
 			</div>
 			<div className="overlay-meta">
@@ -209,9 +208,7 @@ const Overlay = () => {
 				<div className="overlay-insight">{aiInsight}</div>
 				<div className="overlay-context-label">{context}</div>
 			</div>
-			<div className="overlay-platform-indicator">
-				{isMac ? '🍎' : isWindows ? '🪟' : '💻'}
-			</div>
+			<div className="overlay-platform-indicator">{isMac ? "🍎" : isWindows ? "🪟" : "💻"}</div>
 		</div>
 	);
 };

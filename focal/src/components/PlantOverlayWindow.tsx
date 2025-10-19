@@ -35,8 +35,7 @@ const PlantOverlayWindow = () => {
 	}, []);
 
 	const handleMouseDown = (e: React.MouseEvent) => {
-		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
-		if (!ipcRenderer) return;
+		if (e.button !== 0) return; // Only left mouse button
 
 		setIsDragging(true);
 		const bounds = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -44,38 +43,38 @@ const PlantOverlayWindow = () => {
 			x: e.clientX - bounds.left,
 			y: e.clientY - bounds.top,
 		});
-		ipcRenderer.send("plant-overlay-set-ignore-mouse", false);
+
+		// Disable text selection during drag
+		e.preventDefault();
 	};
 
 	const handleMouseMove = (e: MouseEvent) => {
 		if (!isDragging) return;
-		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
-		if (!ipcRenderer) return;
 
-		ipcRenderer.send("plant-overlay-move", {
-			x: e.screenX - dragOffset.x,
-			y: e.screenY - dragOffset.y,
-		});
+		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
+		if (ipcRenderer) {
+			// Use Electron's window positioning
+			const newX = e.screenX - dragOffset.x;
+			const newY = e.screenY - dragOffset.y;
+
+			ipcRenderer.send("plant-overlay-move", { x: newX, y: newY });
+		}
 	};
 
 	const handleMouseUp = () => {
-		if (!isDragging) return;
-		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
-		if (!ipcRenderer) return;
-
 		setIsDragging(false);
-		ipcRenderer.send("plant-overlay-set-ignore-mouse", true);
 	};
 
 	useEffect(() => {
 		if (isDragging) {
-			window.addEventListener("mousemove", handleMouseMove);
-			window.addEventListener("mouseup", handleMouseUp);
-			return () => {
-				window.removeEventListener("mousemove", handleMouseMove);
-				window.removeEventListener("mouseup", handleMouseUp);
-			};
+			document.addEventListener("mousemove", handleMouseMove);
+			document.addEventListener("mouseup", handleMouseUp);
 		}
+
+		return () => {
+			document.removeEventListener("mousemove", handleMouseMove);
+			document.removeEventListener("mouseup", handleMouseUp);
+		};
 	}, [isDragging, dragOffset]);
 
 	const plant: Plant | null = plantData
@@ -94,7 +93,11 @@ const PlantOverlayWindow = () => {
 
 	return (
 		<div className="plant-overlay-root">
-			<div className={`plant-overlay-container ${isDragging ? "dragging" : ""}`} onMouseDown={handleMouseDown}>
+			<div
+				className={`plant-overlay-container ${isDragging ? "dragging" : ""}`}
+				onMouseDown={handleMouseDown}
+				style={{ cursor: isDragging ? "grabbing" : "grab" }}
+			>
 				{plant ? (
 					<div className="plant-overlay-content">
 						<div className="plant-overlay-header">
