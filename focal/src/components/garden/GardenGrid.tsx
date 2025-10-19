@@ -1,8 +1,8 @@
 import clsx from "clsx";
 import { useMemo } from "react";
-import { getPlantIconSrc } from "../../assets/plantIcons";
-import { getSeedLibrary } from "../../core/gardenGame";
 import type { Plant, PlantType, Plot } from "../../core/index";
+import { SEED_LIBRARY } from "../../core/gardenGame";
+import { getPlantIconSrc } from "../../assets/plantIcons";
 import { PlantVisual, getStageLabel } from "./PlantVisual";
 
 const getProgressPercent = (plant: Plant) => Math.min(100, Math.round(plant.progress * 100));
@@ -47,8 +47,6 @@ export const GardenGrid = ({
 		return "repeat(4, minmax(0, 1fr))";
 	}, [plots.length]);
 
-	const seedLibrary = getSeedLibrary();
-
 	return (
 		<div className="garden-section">
 			<div className="garden-grid" style={{ gridTemplateColumns: gridTemplate }}>
@@ -57,9 +55,10 @@ export const GardenGrid = ({
 					const stageLabel = plant ? getStageLabel(plant) : "Empty Plot";
 					const percent = plant ? getProgressPercent(plant) : 0;
 					const progressColor = plant ? GROWTH_COLORS[stageLabel] : "transparent";
-					const definition = plant ? seedLibrary[plant.type] : undefined;
+					const definition = plant ? SEED_LIBRARY[plant.type] : undefined;
 					const iconSrc = definition ? getPlantIconSrc(definition.icon) : undefined;
 					const isSelectedForOverlay = Boolean(plant && selectedOverlayPlotId === plot.id);
+					const isReadyToHarvest = Boolean(plant && plant.progress >= 1);
 
 					const handleDrop: React.DragEventHandler<HTMLDivElement> = (event) => {
 						event.preventDefault();
@@ -73,17 +72,40 @@ export const GardenGrid = ({
 						event.dataTransfer.dropEffect = "copy";
 					};
 
+					const handlePlotClick: React.MouseEventHandler<HTMLDivElement> = (event) => {
+						if (!isReadyToHarvest) return;
+						if (event.defaultPrevented) return;
+						onHarvest(plot.id);
+					};
+
+					const handlePlotKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (event) => {
+						if (!isReadyToHarvest) return;
+						if (event.key === "Enter" || event.key === " ") {
+							event.preventDefault();
+							onHarvest(plot.id);
+						}
+					};
+
 					return (
 						<div
 							key={plot.id}
 							className={clsx("plot-card", {
 								"plot-card--occupied": Boolean(plant),
-								"plot-card--ready": plant && plant.progress >= 1,
+								"plot-card--ready": isReadyToHarvest,
 								"plot-card--shake": shakePlotId === plot.id,
 								"plot-card--overlay-selected": isSelectedForOverlay,
 							})}
 							onDrop={handleDrop}
 							onDragOver={handleDragOver}
+							onClick={handlePlotClick}
+							onKeyDown={handlePlotKeyDown}
+							role={isReadyToHarvest ? "button" : undefined}
+							tabIndex={isReadyToHarvest ? 0 : undefined}
+							aria-label={
+								isReadyToHarvest
+									? `Harvest ${definition?.displayName ?? "plant"} from plot ${getPlotDisplayId(plot.id)}`
+									: undefined
+							}
 						>
 							<header className="plot-card__header">
 								<span className="plot-card__title">{getPlotDisplayId(plot.id)}</span>
@@ -115,21 +137,16 @@ export const GardenGrid = ({
 											/>
 										</div>
 										<span className="plot-card__progress-text">{percent}%</span>
-										<button
-											className="plot-card__harvest"
-											type="button"
-											disabled={plant.progress < 1}
-											onClick={() => onHarvest(plot.id)}
-										>
-											Harvest
-										</button>
 										{onSelectOverlayPlot ? (
 											<button
 												type="button"
 												className={clsx("plot-card__overlay-button", {
 													"plot-card__overlay-button--active": isSelectedForOverlay,
 												})}
-												onClick={() => onSelectOverlayPlot(plot.id, plant)}
+												onClick={(event) => {
+													event.stopPropagation();
+													onSelectOverlayPlot(plot.id, plant);
+												}}
 												aria-pressed={isSelectedForOverlay}
 											>
 												{isSelectedForOverlay ? "Overlay Active" : "Show in Overlay"}

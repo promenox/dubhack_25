@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Plant } from "../core/index";
 import { useGardenGame } from "../hooks/useGardenGame";
@@ -16,6 +16,14 @@ const Garden = () => {
 	const [overlayPlotId, setOverlayPlotId] = useState<string | null>(null);
 	const toastTimerRef = useRef<number | null>(null);
 	const toastDismissRef = useRef<number | null>(null);
+
+	const electronVersion = useMemo(() => {
+		try {
+			return (window as any)?.process?.versions?.electron ?? "n/a";
+		} catch {
+			return "n/a";
+		}
+	}, []);
 
 	// Must be called before any conditional returns (Rules of Hooks)
 	useEffect(() => {
@@ -114,18 +122,16 @@ const Garden = () => {
 			setOverlayPlotId(nextSelection);
 
 			if (nextSelection) {
-				// Show overlay and send plant data
 				ipcRenderer.send("show-plant-overlay");
 				ipcRenderer.send("update-plant-overlay", {
 					plantId: plant.id,
-					plotId: plotId,
+					plotId,
 					plantType: plant.type,
 					progress: plant.progress,
 					plantedAt: plant.plantedAt,
 					growthDuration: plant.growthDuration,
 				});
 			} else {
-				// Close overlay when deselected
 				ipcRenderer.send("close-plant-overlay");
 			}
 		},
@@ -226,30 +232,29 @@ const Garden = () => {
 	// Now we can conditionally return
 	if (!isReady || !state) {
 		return (
-			<div className="garden-main-container garden-loading">
-				<div className="garden-loading-card">
+			<main className="app app--loading">
+				<div className="loading-card">
 					<h1>Preparing Your Garden...</h1>
 					<p>Loading soil, seeds, and sunshine.</p>
 				</div>
-			</div>
+			</main>
 		);
 	}
 
 	return (
-		<div className="garden-app-shell">
-			<header className="garden-header">
-				<button className="garden-back-btn" onClick={() => navigate("/")}>
-					← Back to Dashboard
+		<div className="app-shell">
+			<header className="app__titlebar">
+				<button className="app__titlebar-back" type="button" onClick={() => navigate("/")}>
+					<span aria-hidden="true">←</span>
+					<span className="app__titlebar-back-text">Dashboard</span>
 				</button>
-				<div className="garden-title-section">
-					<div className="garden-title">FocusAI Garden</div>
-					<div className="garden-subtitle">Grow your productivity</div>
-				</div>
+				<span className="app__titlebar-tagline">Grow Your Productivity Garden</span>
+				<span className="app__titlebar-version">Electron {electronVersion}</span>
 			</header>
 
 			{toast && (
 				<div
-					className={`garden-toast ${toast.visible ? "garden-toast--visible" : "garden-toast--hiding"}`}
+					className={`app__toast ${toast.visible ? "app__toast--visible" : "app__toast--hiding"}`}
 					role="button"
 					aria-live="assertive"
 					tabIndex={0}
@@ -265,16 +270,18 @@ const Garden = () => {
 				</div>
 			)}
 
-			<main className="garden-main">
-				<div className="garden-body">
-					<GardenGrid
-						plots={state.plots}
-						shakePlotId={shakePlotId ?? undefined}
-						selectedOverlayPlotId={overlayPlotId ?? undefined}
-						onSelectOverlayPlot={handleSelectOverlayPlot}
-						onDropSeed={(plotId, seedType) => dispatch({ type: "plant", plotId, seedType })}
-						onHarvest={(plotId) => dispatch({ type: "harvest", plotId })}
-					/>
+			<main className="app">
+				<div className="app__body">
+					<div className="app__main">
+						<GardenGrid
+							plots={state.plots}
+							shakePlotId={shakePlotId ?? undefined}
+							selectedOverlayPlotId={overlayPlotId ?? undefined}
+							onSelectOverlayPlot={handleSelectOverlayPlot}
+							onDropSeed={(plotId, seedType) => dispatch({ type: "plant", plotId, seedType })}
+							onHarvest={(plotId) => dispatch({ type: "harvest", plotId })}
+						/>
+					</div>
 				</div>
 			</main>
 
