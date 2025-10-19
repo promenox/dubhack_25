@@ -1,6 +1,6 @@
 import { useState } from "react";
 import authService from "../services/auth";
-import { setAuthToken } from "../utils/database";
+import { saveUserProfile, setAuthToken } from "../utils/database";
 import "./Auth.css";
 
 interface AuthProps {
@@ -25,7 +25,7 @@ const Auth = ({ onAuthSuccess }: AuthProps) => {
 		setLoading(true);
 
 		try {
-			const response = await authService.signIn(username, password);
+			const response = await authService.signIn(email, password);
 			console.log("✅ Sign in successful");
 			console.log("📦 Response structure:", Object.keys(response));
 
@@ -48,9 +48,9 @@ const Auth = ({ onAuthSuccess }: AuthProps) => {
 				setError("Please verify your email. Check your inbox for the confirmation code.");
 				setMode("confirm");
 			} else if (errorCode === "NotAuthorizedException") {
-				setError("Incorrect username or password");
+				setError("Incorrect email or password");
 			} else if (errorCode === "UserNotFoundException") {
-				setError("User not found. Please check your username.");
+				setError("User not found. Please check your email.");
 			} else {
 				setError(errorMessage);
 			}
@@ -66,7 +66,8 @@ const Auth = ({ onAuthSuccess }: AuthProps) => {
 		setLoading(true);
 
 		try {
-			await authService.signUp(username, email, password);
+			// Use email as Cognito username and email attribute
+			await authService.signUp(email, email, password);
 			setMessage("Account created! Please check your email for a verification code.");
 			setMode("confirm");
 		} catch (err: any) {
@@ -97,7 +98,24 @@ const Auth = ({ onAuthSuccess }: AuthProps) => {
 		setLoading(true);
 
 		try {
-			await authService.confirmSignUp(username, confirmCode);
+			// Confirm using email as Cognito username
+			await authService.confirmSignUp(email, confirmCode);
+
+			// Auto sign-in to obtain tokens and userId (sub)
+			const signInResponse = await authService.signIn(email, password);
+			if (signInResponse?.AuthenticationResult?.IdToken) {
+				setAuthToken(signInResponse.AuthenticationResult.IdToken);
+			}
+
+			// Fetch user attributes to get the UID and persist profile
+			try {
+				const user = await authService.getUserAttributes();
+				await saveUserProfile(user.userId, username, user.email || email);
+				console.log("User profile saved after confirmation");
+			} catch (profileErr) {
+				console.warn("Failed to save user profile after confirmation:", profileErr);
+			}
+
 			setMessage("Email verified! You can now sign in.");
 			setMode("signin");
 			setConfirmCode("");
@@ -123,7 +141,8 @@ const Auth = ({ onAuthSuccess }: AuthProps) => {
 		setLoading(true);
 
 		try {
-			await authService.resendConfirmationCode(username);
+			// Use email as Cognito username for resending code
+			await authService.resendConfirmationCode(email);
 			setMessage("Verification code resent! Check your email.");
 		} catch (err: any) {
 			const errorMessage = err.message || err.Message || "Failed to resend code";
@@ -146,12 +165,12 @@ const Auth = ({ onAuthSuccess }: AuthProps) => {
 					<form onSubmit={handleSignIn}>
 						<h2>Sign In</h2>
 						<div className="auth-form-group">
-							<label htmlFor="username">Username</label>
+							<label htmlFor="email">Email</label>
 							<input
-								id="username"
-								type="text"
-								value={username}
-								onChange={(e) => setUsername(e.target.value)}
+								id="email"
+								type="email"
+								value={email}
+								onChange={(e) => setEmail(e.target.value)}
 								required
 								disabled={loading}
 							/>

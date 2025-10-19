@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FocusData } from "../types/ipc";
+import { fetchAllScores } from "../utils/database";
 import "./Dashboard.css";
 
 interface Activity {
@@ -28,6 +29,9 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 	const [sessionActive, setSessionActive] = useState<boolean>(false);
 	const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
 	const [sessionDuration, setSessionDuration] = useState<string>("00:00:00");
+	const [leaderboard, setLeaderboard] = useState<Array<{ userId: string; score: number; username?: string }>>([]);
+	const [loadingLeaderboard, setLoadingLeaderboard] = useState<boolean>(false);
+	const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
 
 	const gardenLevels = ["🌱", "🌿", "🌳", "🌸", "🌺", "🌻", "🌷", "🌹"];
 	const gardenNames = [
@@ -159,6 +163,35 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 		navigate("/debug");
 	};
 
+	const trimmedUserId = useCallback((uid: string) => {
+		if (!uid) return "unknown";
+		const start = uid.slice(0, 6);
+		const end = uid.slice(-4);
+		return `${start}...${end}`;
+	}, []);
+
+	const refreshLeaderboard = useCallback(async () => {
+		setLoadingLeaderboard(true);
+		setLeaderboardError(null);
+		try {
+			const scores = await fetchAllScores();
+			if (scores) {
+				// Ensure sorted desc by score
+				scores.sort((a, b) => b.score - a.score);
+				setLeaderboard(scores);
+			}
+		} catch (e: any) {
+			setLeaderboardError("Failed to load leaderboard");
+		} finally {
+			setLoadingLeaderboard(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		// Load on mount
+		refreshLeaderboard();
+	}, [refreshLeaderboard]);
+
 	const getActivityType = (app: string, url: string) => {
 		const appLower = app.toLowerCase();
 		const urlLower = url.toLowerCase();
@@ -263,6 +296,10 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 					<div className="nav-item">
 						<div className="nav-icon">📈</div>
 						<div className="nav-label">Analytics</div>
+					</div>
+					<div className="nav-item" onClick={() => navigate("/leaderboard")}>
+						<div className="nav-icon">🏆</div>
+						<div className="nav-label">Leaderboard</div>
 					</div>
 				</div>
 
@@ -420,6 +457,40 @@ const Dashboard = ({ onSignOut }: DashboardProps) => {
 									</div>
 								))
 							)}
+						</div>
+					</div>
+
+					{/* Leaderboard Card */}
+					<div className="card leaderboard-card">
+						<div className="card-header">
+							<h3 className="card-title">Leaderboard</h3>
+							<div className="card-icon">🏆</div>
+						</div>
+						<div className="leaderboard">
+							{loadingLeaderboard ? (
+								<div className="leaderboard-loading">Loading leaderboard...</div>
+							) : leaderboardError ? (
+								<div className="leaderboard-error">{leaderboardError}</div>
+							) : leaderboard.length === 0 ? (
+								<div className="leaderboard-empty">No scores yet</div>
+							) : (
+								<ol className="leaderboard-list">
+									{leaderboard.map((entry, index) => (
+										<li key={`${entry.userId}-${index}`} className="leaderboard-item">
+											<div className="leaderboard-rank">{index + 1}</div>
+											<div className="leaderboard-user">
+												{entry.username || trimmedUserId(entry.userId)}
+											</div>
+											<div className="leaderboard-score">{entry.score}</div>
+										</li>
+									))}
+								</ol>
+							)}
+							<div className="leaderboard-actions">
+								<button className="btn btn-secondary" onClick={refreshLeaderboard}>
+									Refresh
+								</button>
+							</div>
 						</div>
 					</div>
 

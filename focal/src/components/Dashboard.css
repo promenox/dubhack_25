@@ -298,6 +298,132 @@ body {
   background: var(--danger-gradient);
 }
 
+/* Leaderboard */
+.leaderboard-card .card-icon {
+  background: var(--primary-gradient);
+}
+
+.leaderboard {
+  position: relative;
+  z-index: 1;
+}
+
+.leaderboard-loading,
+.leaderboard-error,
+.leaderboard-empty {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.leaderboard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.leaderboard-item {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.leaderboard-item:last-child {
+  border-bottom: none;
+}
+
+.leaderboard-rank {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--glass-bg);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.leaderboard-user {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.leaderboard-score {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.leaderboard-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+/* Leaderboard page */
+.leaderboard-page-header {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.leaderboard-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.leaderboard-podium-card {
+  margin-bottom: 24px;
+}
+
+.podium {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  align-items: end;
+  gap: 16px;
+}
+
+.podium-spot {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 16px;
+}
+
+.podium-1 { height: 180px; box-shadow: var(--shadow-primary); }
+.podium-2 { height: 140px; }
+.podium-3 { height: 120px; }
+
+.podium-rank {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.podium-user {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.podium-score {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.leaderboard-list--spacious .leaderboard-item {
+  padding: 14px 0;
+}
+
 /* Premium Score Display */
 .score-display {
   display: flex;

@@ -11,6 +11,33 @@ interface UserScore {
 	score: number;
 	timestamp: number;
 	lastUpdated: number;
+	username?: string;
+	email?: string;
+}
+
+/**
+ * Decode JWT token to extract user ID (UUID)
+ */
+function decodeJWT(token: string): { sub: string } | null {
+	try {
+		// JWT has 3 parts separated by dots: header.payload.signature
+		const parts = token.split(".");
+		if (parts.length !== 3) {
+			throw new Error("Invalid JWT format");
+		}
+
+		// Decode the payload (second part)
+		const payload = parts[1];
+		// Add padding if needed for base64 decoding
+		const paddedPayload = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+		const decodedPayload = Buffer.from(paddedPayload, "base64").toString("utf-8");
+
+		const parsed = JSON.parse(decodedPayload);
+		return { sub: parsed.sub };
+	} catch (error) {
+		console.error("Failed to decode JWT:", error);
+		return null;
+	}
 }
 
 export class DatabaseService {
@@ -34,6 +61,43 @@ export class DatabaseService {
 			connectTimeoutMS: 5000, // 5 second timeout
 			serverSelectionTimeoutMS: 5000, // 5 second timeout
 		});
+	}
+
+	/**
+	 * Upsert basic user profile details (username/email) for a given userId
+	 */
+	async saveUserProfile(userId: string, username: string, email: string): Promise<void> {
+		await this.connect();
+
+		if (!this.scoresCollection) {
+			throw new Error("Database not initialized");
+		}
+
+		const timestamp = Date.now();
+
+		try {
+			await this.scoresCollection.updateOne(
+				{ userId },
+				{
+					$set: {
+						username,
+						email,
+						lastUpdated: timestamp,
+					},
+					$setOnInsert: {
+						// Ensure a starting score exists when first creating the document
+						score: 0,
+						timestamp,
+					},
+				},
+				{ upsert: true }
+			);
+
+			console.log(`✅ User profile saved for ${userId.substring(0, 10)}... (${username}, ${email})`);
+		} catch (error: any) {
+			console.error("❌ Failed to save user profile:", error.message);
+			throw new Error(`Failed to save user profile: ${error.message}`);
+		}
 	}
 
 	/**
@@ -63,7 +127,6 @@ export class DatabaseService {
 			console.log("🔌 Attempting to connect to MongoDB...");
 			await this.client.connect();
 			this.db = this.client.db(dbName);
-			await this.client.db(dbName).command({ ping: 1 });
 			this.scoresCollection = this.db.collection<UserScore>(collectionName);
 
 			// Create index on userId for faster queries
@@ -103,14 +166,20 @@ export class DatabaseService {
 	}
 
 	/**
-	 * Get user ID from auth token (simplified - you may want to decode JWT)
+	 * Get user ID from auth token by decoding JWT to extract UUID
 	 */
 	private getUserId(): string {
 		if (!this.authToken) {
 			throw new Error("Authentication token not available");
 		}
-		// For now, use the token as user ID. In production, decode JWT to get user ID
-		return this.authToken;
+
+		const decoded = decodeJWT(this.authToken);
+		if (!decoded || !decoded.sub) {
+			throw new Error("Failed to extract user ID from authentication token");
+		}
+
+		console.log(`🔑 Extracted UUID from JWT: ${decoded.sub}`);
+		return decoded.sub; // This is the UUID
 	}
 
 	/**
@@ -225,6 +294,29 @@ export class DatabaseService {
 		} catch (error: any) {
 			console.error("❌ Failed to update score:", error.message);
 			throw new Error(`Failed to update score: ${error.message}`);
+		}
+	}
+
+	/**
+	 * Fetch all users' scores for leaderboard display
+	 */
+	async getAllScores(): Promise<Array<{ userId: string; score: number; username?: string }>> {
+		await this.connect();
+
+		if (!this.scoresCollection) {
+			throw new Error("Database not initialized");
+		}
+
+		try {
+			const cursor = this.scoresCollection
+				.find({}, { projection: { _id: 0, userId: 1, score: 1, username: 1 } })
+				.sort({ score: -1 });
+			const results = await cursor.toArray();
+			console.log("ALL RESULTS:::::, ", results);
+			return results.map((doc) => ({ userId: doc.userId, score: doc.score, username: doc.username }));
+		} catch (error: any) {
+			console.error("❌ Failed to fetch all scores:", error.message);
+			throw new Error(`Failed to fetch all scores: ${error.message}`);
 		}
 	}
 
