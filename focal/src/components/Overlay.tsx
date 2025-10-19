@@ -16,6 +16,7 @@ const Overlay = () => {
 	const [aiInsight, setAiInsight] = useState<string>("—");
 	const [context, setContext] = useState<string>("—");
 	const [startTime, setStartTime] = useState<number | null>(null);
+	const startTimeRef = useRef<number | null>(null);
 	const timerRef = useRef<number | null>(null);
 	const [isDragging, setIsDragging] = useState<boolean>(false);
 	const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -24,8 +25,9 @@ const Overlay = () => {
 	const pad = (n: number) => (n < 10 ? "0" + n : "" + n);
 
 	const render = () => {
-		if (startTime === null) return;
-		const elapsed = Date.now() - startTime;
+		const ts = startTimeRef.current;
+		if (ts === null) return;
+		const elapsed = Date.now() - ts;
 		const totalSeconds = Math.floor(elapsed / 1000);
 		const h = Math.floor(totalSeconds / 3600);
 		const m = Math.floor((totalSeconds % 3600) / 60);
@@ -37,12 +39,15 @@ const Overlay = () => {
 		console.log("🚀 Overlay: Starting session with timestamp:", ts);
 		const timestamp = ts || Date.now();
 		setStartTime(timestamp);
+		startTimeRef.current = timestamp;
 		if (timerRef.current) {
 			clearInterval(timerRef.current);
 			timerRef.current = null;
 		}
 		// Use window.setInterval ID as number for refs compatibility
 		timerRef.current = window.setInterval(render, 1000);
+		// Render immediately so the timer shows without waiting 1s
+		render();
 		console.log("✅ Overlay: Session started, timer set");
 	};
 
@@ -53,6 +58,7 @@ const Overlay = () => {
 			timerRef.current = null;
 		}
 		setStartTime(null);
+		startTimeRef.current = null;
 		setTime("00:00:00");
 		setTitle("—");
 		setUrl("—");
