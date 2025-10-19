@@ -11,6 +11,45 @@ export interface SaveUserProfileResponse {
 	error?: string;
 }
 
+// Local fallback for leaderboard when IPC/database isn't available
+const MOCK_LEADERBOARD_KEY = "leaderboardMock";
+
+function readMockLeaderboard(): Array<{ userId: string; score: number; username?: string }> | null {
+	try {
+		const raw = localStorage.getItem(MOCK_LEADERBOARD_KEY);
+		if (!raw) return null;
+		const parsed = JSON.parse(raw);
+		if (!Array.isArray(parsed)) return null;
+		return parsed as Array<{ userId: string; score: number; username?: string }>;
+	} catch {
+		return null;
+	}
+}
+
+function seedMockLeaderboard(): Array<{ userId: string; score: number; username?: string }> {
+	const seed = [
+		{ userId: "11111111-aaaa-bbbb-cccc-000000000001", score: 1240, username: "Ada" },
+		{ userId: "11111111-aaaa-bbbb-cccc-000000000002", score: 1180, username: "Linus" },
+		{ userId: "11111111-aaaa-bbbb-cccc-000000000003", score: 990, username: "Grace" },
+		{ userId: "11111111-aaaa-bbbb-cccc-000000000004", score: 860, username: "Alan" },
+		{ userId: "11111111-aaaa-bbbb-cccc-000000000005", score: 820, username: "Katherine" },
+		{ userId: "11111111-aaaa-bbbb-cccc-000000000006", score: 780, username: "Edsger" },
+		{ userId: "11111111-aaaa-bbbb-cccc-000000000007", score: 720, username: "Margaret" },
+		{ userId: "11111111-aaaa-bbbb-cccc-000000000008", score: 680, username: "Barbara" },
+		{ userId: "11111111-aaaa-bbbb-cccc-000000000009", score: 640, username: "Donald" },
+		{ userId: "11111111-aaaa-bbbb-cccc-000000000010", score: 600, username: "Tim" },
+	];
+
+	localStorage.setItem(MOCK_LEADERBOARD_KEY, JSON.stringify(seed));
+	return seed;
+}
+
+function getOrInitMockLeaderboard(): Array<{ userId: string; score: number; username?: string }> {
+	const existing = readMockLeaderboard();
+	if (existing && existing.length > 0) return existing;
+	return seedMockLeaderboard();
+}
+
 // Try to get ipcRenderer from window or electron
 function getIpcRenderer() {
 	// Try window.ipcRenderer first (from preload script)
@@ -131,8 +170,10 @@ export async function fetchAllScores(): Promise<Array<{ userId: string; score: n
 		const ipcRenderer = getIpcRenderer();
 
 		if (!ipcRenderer) {
-			console.warn("⚠️ IPC not available - running in browser mode");
-			return null;
+			console.warn("⚠️ IPC not available - running in browser mode (mock leaderboard)");
+			const mock = getOrInitMockLeaderboard();
+			// Ensure sorted desc by score
+			return [...mock].sort((a, b) => b.score - a.score);
 		}
 
 		const response: LeaderboardResponse = await ipcRenderer.invoke("fetch-all-scores");

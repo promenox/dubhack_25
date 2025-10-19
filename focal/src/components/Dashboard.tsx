@@ -29,10 +29,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 	const [activityHistory, setActivityHistory] = useState<Activity[]>([]);
 	const [insights, setInsights] = useState<Array<{ text: string; timestamp: number }>>([]);
 	const [sessionActive, setSessionActive] = useState<boolean>(false);
-    const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
+	const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
 	const [sessionDuration, setSessionDuration] = useState<string>("00:00:00");
-    const sessionStartRef = useRef<number | null>(null);
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
+	const sessionStartRef = useRef<number | null>(null);
+	const timerRef = useRef<NodeJS.Timeout | null>(null);
 	const [leaderboard, setLeaderboard] = useState<Array<{ userId: string; score: number; username?: string }>>([]);
 	const [loadingLeaderboard, setLoadingLeaderboard] = useState<boolean>(false);
 	const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
@@ -161,56 +161,56 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 		}
 	}, [sessionActive]);
 
-    // Drive the timer from a stable ref to avoid flicker/jumps on state updates
-    useEffect(() => {
-        if (!sessionActive) return;
-        if (!sessionStartRef.current) return;
+	// Drive the timer from a stable ref to avoid flicker/jumps on state updates
+	useEffect(() => {
+		if (!sessionActive) return;
+		if (!sessionStartRef.current) return;
 
-        // Clear any prior interval
-        if (timerRef.current) clearInterval(timerRef.current);
-        timerRef.current = setInterval(() => {
-            const start = sessionStartRef.current as number;
-            const duration = Date.now() - start;
-            const hours = Math.floor(duration / 3600000);
-            const minutes = Math.floor((duration % 3600000) / 60000);
-            const seconds = Math.floor((duration % 60000) / 1000);
+		// Clear any prior interval
+		if (timerRef.current) clearInterval(timerRef.current);
+		timerRef.current = setInterval(() => {
+			const start = sessionStartRef.current as number;
+			const duration = Date.now() - start;
+			const hours = Math.floor(duration / 3600000);
+			const minutes = Math.floor((duration % 3600000) / 60000);
+			const seconds = Math.floor((duration % 60000) / 1000);
 
-            const timeString = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
-                .toString()
-                .padStart(2, "0")}`;
-            setSessionDuration(timeString);
-        }, 1000);
+			const timeString = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
+				.toString()
+				.padStart(2, "0")}`;
+			setSessionDuration(timeString);
+		}, 1000);
 
-        return () => {
-            if (timerRef.current) clearInterval(timerRef.current);
-            timerRef.current = null;
-        };
-    }, [sessionActive]);
+		return () => {
+			if (timerRef.current) clearInterval(timerRef.current);
+			timerRef.current = null;
+		};
+	}, [sessionActive]);
 
-    const startSession = () => {
+	const startSession = () => {
 		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
 		if (!ipcRenderer) return;
 
-        const now = Date.now();
-        sessionStartRef.current = now;
-        setSessionStartTime(now);
-        setSessionDuration("00:00:00");
-        setSessionActive(true);
+		const now = Date.now();
+		sessionStartRef.current = now;
+		setSessionStartTime(now);
+		setSessionDuration("00:00:00");
+		setSessionActive(true);
 		ipcRenderer.send("start-session");
 		console.log("Focus session started");
 	};
 
-    const stopSession = () => {
+	const stopSession = () => {
 		const ipcRenderer = (window as any).require?.("electron")?.ipcRenderer;
 		if (!ipcRenderer) return;
 
 		setSessionActive(false);
 		setSessionStartTime(null);
-        sessionStartRef.current = null;
-        if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-        }
+		sessionStartRef.current = null;
+		if (timerRef.current) {
+			clearInterval(timerRef.current);
+			timerRef.current = null;
+		}
 		ipcRenderer.send("stop-session");
 		console.log("Focus session stopped");
 	};
@@ -330,11 +330,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 		<div className="app-container">
 			{/* Premium Sidebar */}
 			<div className="sidebar">
-				<div className="logo">
-					<div className="logo-icon">
-						<img src="/focal-ai-icon.png" alt="FocalAI" className="logo-img" />
-					</div>
-				</div>
+				<img src="/focal-ai-icon.png" alt="FocalAI" className="logo-img" />
 
 				<nav className="nav">
 					<div className="nav-section">
@@ -375,7 +371,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 				{/* Hero Banner */}
 				<div className={`hero-banner ${sessionActive ? "hero-active" : ""}`}>
 					<div className="hero-content">
-                        <h1 className="hero-title">{sessionActive ? sessionDuration : "00:00:00"}</h1>
+						<h1 className="hero-title">{sessionActive ? sessionDuration : "00:00:00"}</h1>
 						<div className="hero-actions">
 							{!sessionActive ? (
 								<button className="btn-hero btn-hero-primary" onClick={startSession}>
@@ -387,7 +383,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onSignOut }) => {
 								</button>
 							)}
 						</div>
-                        {/* Timer now shown in the title; keep status minimal */}
+						{/* Timer now shown in the title; keep status minimal */}
 					</div>
 					<div className="hero-glow" />
 				</div>

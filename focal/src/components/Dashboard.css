@@ -553,16 +553,6 @@ body::-webkit-scrollbar {
   overflow: hidden;
 }
 
-.logo-icon::before {
-  content: '🧠';
-  font-size: 24px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-}
-
-/* Override emoji in logo when using image */
-.logo-icon::before {
-  content: none;
-}
 
 /* Sidebar logo image sizing */
 .logo-img {
@@ -570,6 +560,7 @@ body::-webkit-scrollbar {
   height: 80px;
   object-fit: contain;
   display: block;
+  margin-bottom: 32px;
 }
 
 /* Sidebar logo: image-only, remove container styling */
@@ -1365,6 +1356,46 @@ button:not(:disabled):active {
   gap: 24px;
   margin-top: 24px;
   grid-auto-rows: 340px; /* establish row height so items can span */
+  grid-auto-flow: dense; /* back-fill gaps for a tighter layout */
+}
+
+/* Responsive fixed column counts so we can perfectly fill last rows */
+@media (max-width: 767px) {
+  .cards-grid { grid-template-columns: 1fr; }
+}
+@media (min-width: 768px) and (max-width: 1199px) {
+  .cards-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1200px) and (max-width: 1599px) {
+  .cards-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 1600px) {
+  .cards-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* Last-row fill rules (ensure no empty space on any row) */
+/* 2-column grid */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .cards-grid > .card:nth-last-child(1):nth-child(2n + 1) { grid-column: span 2; }
+}
+
+/* 3-column grid */
+@media (min-width: 1200px) and (max-width: 1599px) {
+  /* If only 1 item in last row */
+  .cards-grid > .card:nth-last-child(1):nth-child(3n + 1) { grid-column: span 3; }
+  /* If 2 items in last row, make the first span 2 */
+  .cards-grid > .card:nth-last-child(2):nth-child(3n + 1) { grid-column: span 2; }
+}
+
+/* 4-column grid */
+@media (min-width: 1600px) {
+  /* If only 1 item in last row */
+  .cards-grid > .card:nth-last-child(1):nth-child(4n + 1) { grid-column: span 4; }
+  /* If 2 items in last row, make them span 2 each */
+  .cards-grid > .card:nth-last-child(2):nth-child(4n + 1) { grid-column: span 2; }
+  .cards-grid > .card:nth-last-child(1):nth-child(4n + 2) { grid-column: span 2; }
+  /* If 3 items in last row, make the first span 2 */
+  .cards-grid > .card:nth-last-child(3):nth-child(4n + 1) { grid-column: span 2; }
 }
 
 /* Hero Banner */
