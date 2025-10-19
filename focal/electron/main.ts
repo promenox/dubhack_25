@@ -23,6 +23,7 @@ class MainApp {
 	mainWindow: BrowserWindow | null;
 	debugWindow: BrowserWindow | null;
 	overlayWindow: BrowserWindow | null;
+	plantOverlayWindow: BrowserWindow | null;
 	focusTracker: FocusTracker;
 	focusAI: FocusAI;
 	isDev: boolean;
@@ -35,6 +36,7 @@ class MainApp {
 		this.mainWindow = null;
 		this.debugWindow = null;
 		this.overlayWindow = null;
+		this.plantOverlayWindow = null;
 		this.focusTracker = new FocusTracker();
 		this.focusAI = new FocusAI();
 		this.isDev = process.argv.includes("--dev");
@@ -292,6 +294,119 @@ class MainApp {
 		this.stopOverlayUpdates();
 	}
 
+	createPlantOverlayWindow() {
+		console.log("createPlantOverlayWindow called");
+		if (this.plantOverlayWindow && !this.plantOverlayWindow.isDestroyed()) {
+			console.log("Plant overlay window already exists, returning");
+			return;
+		}
+
+		const { width } = screen.getPrimaryDisplay().workAreaSize;
+		const overlayWidth = 380;
+		const overlayHeight = 520;
+		const x = Math.round(width - overlayWidth - 40); // Position on right side
+		const y = 80;
+
+		// Platform-specific overlay configuration
+		const isMac = process.platform === "darwin";
+		const isWindows = process.platform === "win32";
+
+		const overlayConfig: any = {
+			width: overlayWidth,
+			height: overlayHeight,
+			minWidth: overlayWidth,
+			maxWidth: overlayWidth,
+			minHeight: overlayHeight,
+			maxHeight: overlayHeight,
+			x,
+			y,
+			frame: false,
+			transparent: true,
+			resizable: false,
+			movable: true,
+			alwaysOnTop: true,
+			skipTaskbar: true,
+			focusable: false,
+			backgroundColor: "#00000000",
+			show: false,
+			fullscreenable: false,
+			maximizable: false,
+			minimizable: false,
+			closable: true,
+			webPreferences: {
+				nodeIntegration: true,
+				contextIsolation: false,
+				preload: path.join(__dirname, "preload.mjs"),
+			},
+		};
+
+		// macOS-specific settings
+		if (isMac) {
+			overlayConfig.titleBarStyle = "hidden";
+			overlayConfig.vibrancy = "dark";
+			overlayConfig.visualEffectState = "active";
+		}
+
+		// Windows-specific settings
+		if (isWindows) {
+			overlayConfig.autoHideMenuBar = true;
+			overlayConfig.thickFrame = false;
+		}
+
+		this.plantOverlayWindow = new BrowserWindow(overlayConfig);
+
+		// Platform-specific window behavior
+		if (isMac) {
+			this.plantOverlayWindow.setAlwaysOnTop(true, "screen-saver");
+			this.plantOverlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+			this.plantOverlayWindow.setIgnoreMouseEvents(false);
+		} else if (isWindows) {
+			this.plantOverlayWindow.setAlwaysOnTop(true, "screen-saver");
+			this.plantOverlayWindow.setIgnoreMouseEvents(false);
+			try {
+				this.plantOverlayWindow.setAlwaysOnTop(true, "floating");
+			} catch (_) {
+				this.plantOverlayWindow.setAlwaysOnTop(true, "screen-saver");
+			}
+		}
+
+		if (VITE_DEV_SERVER_URL) {
+			this.plantOverlayWindow.loadURL(VITE_DEV_SERVER_URL + "#/plant-overlay");
+		} else {
+			this.plantOverlayWindow.loadFile(path.join(RENDERER_DIST, "index.html"), {
+				hash: "/plant-overlay",
+			});
+		}
+
+		this.plantOverlayWindow.once("ready-to-show", () => {
+			console.log("Plant overlay window ready to show");
+			this.plantOverlayWindow?.setSize(overlayWidth, overlayHeight, false);
+			this.plantOverlayWindow?.setResizable(false);
+			this.plantOverlayWindow?.showInactive();
+		});
+
+		this.plantOverlayWindow.on("closed", () => {
+			console.log("Plant overlay window closed");
+			this.plantOverlayWindow = null;
+		});
+	}
+
+	showPlantOverlay() {
+		console.log("Showing plant overlay window...");
+		this.createPlantOverlayWindow();
+	}
+
+	hidePlantOverlay() {
+		if (!this.plantOverlayWindow || this.plantOverlayWindow.isDestroyed()) return;
+		this.plantOverlayWindow.hide();
+	}
+
+	closePlantOverlay() {
+		if (!this.plantOverlayWindow || this.plantOverlayWindow.isDestroyed()) return;
+		this.plantOverlayWindow.close();
+		this.plantOverlayWindow = null;
+	}
+
 	startOverlayUpdates() {
 		this.stopOverlayUpdates();
 		this.overlayUpdateInterval = setInterval(async () => {
@@ -467,6 +582,45 @@ class MainApp {
 			console.log("Immediate metadata extraction requested");
 			if (this.focusTracker && !this.focusTracker.demoMode) {
 				await this.focusTracker.detectContextChanges();
+			}
+		});
+
+		// Plant overlay IPC handlers
+		ipcMain.on("show-plant-overlay", () => {
+			console.log("Show plant overlay requested");
+			this.showPlantOverlay();
+		});
+
+		ipcMain.on("hide-plant-overlay", () => {
+			console.log("Hide plant overlay requested");
+			this.hidePlantOverlay();
+		});
+
+		ipcMain.on("close-plant-overlay", () => {
+			console.log("Close plant overlay requested");
+			this.closePlantOverlay();
+		});
+
+		ipcMain.on("update-plant-overlay", (_e, data) => {
+			if (this.plantOverlayWindow && !this.plantOverlayWindow.isDestroyed()) {
+				this.plantOverlayWindow.webContents.send("plant-data-update", data);
+			}
+		});
+
+		// Allow plant overlay to be dragged
+		ipcMain.on("plant-overlay-set-ignore-mouse", (_e, ignore) => {
+			if (this.plantOverlayWindow && !this.plantOverlayWindow.isDestroyed()) {
+				try {
+					this.plantOverlayWindow.setIgnoreMouseEvents(!!ignore, { forward: !!ignore });
+				} catch (_) {}
+			}
+		});
+
+		ipcMain.on("plant-overlay-move", (_e, { x, y }) => {
+			if (this.plantOverlayWindow && !this.plantOverlayWindow.isDestroyed()) {
+				try {
+					this.plantOverlayWindow.setPosition(Math.round(x), Math.round(y));
+				} catch (_) {}
 			}
 		});
 
