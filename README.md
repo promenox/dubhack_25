@@ -1,4 +1,4 @@
-#DubHacks '25 FocalAI
+# DubHacks '25 FocalAI
 
 ## Evevator Pitch
 
